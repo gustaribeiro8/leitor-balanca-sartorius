@@ -17,211 +17,236 @@ class AppBalanca(ctk.CTk):
         super().__init__()
 
         # Configurações da Janela
-        self.title("SOMA - Leitor Sartorius v3.0")
-        self.geometry("600x550")
+        self.title("SOMA - Metrologia ABBA v4.0")
+        self.geometry("700x600")
         self.resizable(False, False)
 
-        # Variáveis
+        # Variáveis de Controle
         self.ser = None
+        self.monitorando = False # Controle da Thread
+        self.ultimo_peso_valido = None # Guarda o valor para salvar instantaneamente
         
         # --- LAYOUT ---
         self.criar_interface()
         
-        # Atalho de teclado (Espaço)
-        self.bind('<space>', self.comando_capturar_tecla)
+        # Atalhos de teclado (ABBA)
+        # O 'bind' conecta a tecla física a uma função
+        self.bind('<a>', lambda event: self.salvar_medida("Padrão (A)"))
+        self.bind('<A>', lambda event: self.salvar_medida("Padrão (A)")) # CapsLock
+        self.bind('<b>', lambda event: self.salvar_medida("Objeto (B)"))
+        self.bind('<B>', lambda event: self.salvar_medida("Objeto (B)")) # CapsLock
+        
+        # Mantive o Espaço como genérico (sem tipo especificado ou Padrão, você decide)
+        self.bind('<space>', lambda event: self.salvar_medida("Genérico"))
 
     def criar_interface(self):
         # 1. Painel de Arquivo
         self.frame_arquivo = ctk.CTkFrame(self)
         self.frame_arquivo.pack(pady=(15, 5), padx=10, fill="x")
         
-        self.lbl_arq = ctk.CTkLabel(self.frame_arquivo, text="Nome da Tabela:", font=("Arial", 12, "bold"))
+        self.lbl_arq = ctk.CTkLabel(self.frame_arquivo, text="Ensaio:", font=("Arial", 12, "bold"))
         self.lbl_arq.pack(side="left", padx=10)
 
-        self.entry_arquivo = ctk.CTkEntry(self.frame_arquivo, width=250, placeholder_text="Ex: Ensaio_01")
+        self.entry_arquivo = ctk.CTkEntry(self.frame_arquivo, width=200, placeholder_text="Nome do arquivo")
         self.entry_arquivo.pack(side="left", padx=5)
-        self.entry_arquivo.insert(0, "dados_coletados")
+        self.entry_arquivo.insert(0, "calibracao_ABBA")
         
-        self.btn_abrir_tabela = ctk.CTkButton(self.frame_arquivo, text="📂 Abrir/Ver Tabela", 
-                                              command=self.abrir_tabela, fg_color="#D35400", width=120)
-        self.btn_abrir_tabela.pack(side="right", padx=10)
+        self.btn_abrir = ctk.CTkButton(self.frame_arquivo, text="📂 Excel", command=self.abrir_tabela, width=80)
+        self.btn_abrir.pack(side="right", padx=10)
 
-        # 2. Painel de Conexão
+        # 2. Painel de Conexão e Controle
         self.frame_topo = ctk.CTkFrame(self)
         self.frame_topo.pack(pady=5, padx=10, fill="x")
 
-        # Botão Inteligente (Conectar/Desconectar)
         self.btn_conexao = ctk.CTkButton(self.frame_topo, text="Conectar COM8", command=self.alternar_conexao, fg_color="green")
         self.btn_conexao.pack(side="left", padx=10)
+        
+        # Botões de Controle da Balança (Novidade)
+        self.btn_tarar = ctk.CTkButton(self.frame_topo, text="ZERAR / TARAR", command=self.comando_tarar, fg_color="#555555", width=120)
+        self.btn_tarar.pack(side="right", padx=10)
+        self.btn_tarar.configure(state="disabled")
 
-        self.lbl_status = ctk.CTkLabel(self.frame_topo, text="Status: Desconectado", text_color="gray")
-        self.lbl_status.pack(side="left", padx=10)
-
-        # 3. Painel Central (Peso)
+        # 3. Painel Central (Display Real-Time)
         self.frame_display = ctk.CTkFrame(self)
         self.frame_display.pack(pady=10, padx=20, fill="both", expand=True)
 
-        self.lbl_titulo_peso = ctk.CTkLabel(self.frame_display, text="INDICAÇÃO ATUAL", font=("Arial", 16))
-        self.lbl_titulo_peso.pack(pady=(20, 5))
+        self.lbl_titulo = ctk.CTkLabel(self.frame_display, text="LEITURA EM TEMPO REAL", font=("Arial", 14, "bold"), text_color="gray")
+        self.lbl_titulo.pack(pady=(15, 0))
 
-        self.lbl_peso = ctk.CTkLabel(self.frame_display, text="--- g", font=("Roboto", 60, "bold"))
+        # O numero grandão
+        self.lbl_peso = ctk.CTkLabel(self.frame_display, text="--- g", font=("Roboto", 70, "bold"))
         self.lbl_peso.pack(pady=10)
+        
+        self.lbl_status = ctk.CTkLabel(self.frame_display, text="Desconectado", text_color="gray")
+        self.lbl_status.pack(pady=5)
 
-        # 4. Painel de Ação
+        # 4. Painel de Ação (Botoes Gigantes para ABBA)
         self.frame_acoes = ctk.CTkFrame(self)
         self.frame_acoes.pack(pady=10, padx=10, fill="x")
 
-        self.btn_capturar = ctk.CTkButton(self.frame_acoes, text="CAPTURAR (Espaço)", height=50, command=self.capturar_peso)
-        self.btn_capturar.pack(side="left", padx=10, fill="x", expand=True)
-        self.btn_capturar.configure(state="disabled")
+        # Grid para dividir os botões
+        self.frame_acoes.columnconfigure(0, weight=1)
+        self.frame_acoes.columnconfigure(1, weight=1)
+
+        self.btn_A = ctk.CTkButton(self.frame_acoes, text="Gravar PADRÃO (A)", height=60, 
+                                   command=lambda: self.salvar_medida("Padrão (A)"), fg_color="#2980b9")
+        self.btn_A.grid(row=0, column=0, padx=5, pady=10, sticky="ew")
+        
+        self.btn_B = ctk.CTkButton(self.frame_acoes, text="Gravar OBJETO (B)", height=60, 
+                                   command=lambda: self.salvar_medida("Objeto (B)"), fg_color="#e67e22")
+        self.btn_B.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
+
+        # Começam desativados
+        self.btn_A.configure(state="disabled")
+        self.btn_B.configure(state="disabled")
 
         # Área de Log
-        self.textbox_log = ctk.CTkTextbox(self, height=80)
+        self.textbox_log = ctk.CTkTextbox(self, height=100)
         self.textbox_log.pack(pady=10, padx=10, fill="x")
-        self.textbox_log.insert("0.0", "Pronto para iniciar.\n")
+        self.textbox_log.insert("0.0", "Use teclas 'A' e 'B' do teclado para capturar.\n")
 
-    # --- FUNÇÕES AUXILIARES ---
+    # --- LÓGICA DE ARQUIVO ---
     def get_nome_arquivo(self):
-        nome = self.entry_arquivo.get().strip()
-        if not nome:
-            nome = "dados_coletados"
-        if not nome.endswith(".csv"):
-            nome += ".csv"
-        return nome
-
-    def abrir_tabela(self):
-        arquivo = self.get_nome_arquivo()
-        if os.path.exists(arquivo):
-            try:
-                os.startfile(arquivo)
-                self.log(f"Abrindo '{arquivo}'...")
-            except Exception as e:
-                messagebox.showerror("Erro", f"Não foi possível abrir:\n{e}")
-        else:
-            messagebox.showwarning("Aviso", "O arquivo ainda não existe.\nCapture dados primeiro!")
-
-    # --- LÓGICA DE CONEXÃO (NOVO) ---
-    def alternar_conexao(self):
-        # Se já tiver serial e ela estiver aberta, vamos fechar
-        if self.ser and self.ser.is_open:
-            self.desconectar()
-        else:
-            self.conectar()
-
-    def conectar(self):
-        try:
-            self.ser = serial.Serial(
-                port='COM8', baudrate=1200, bytesize=serial.SEVENBITS,
-                parity=serial.PARITY_ODD, stopbits=serial.STOPBITS_ONE,
-                timeout=1, rtscts=False
-            )
-            # 1. Muda visual para conectado
-            self.lbl_status.configure(text="Status: CONECTADO", text_color="#00FF00")
-            
-            # 2. Transforma botão em "Desconectar"
-            self.btn_conexao.configure(text="Desconectar", fg_color="red") 
-            
-            # 3. Ativa captura e BLOQUEIA edição do nome (Isso resolve o problema do Espaço!)
-            self.btn_capturar.configure(state="normal")
-            self.entry_arquivo.configure(state="disabled") 
-            
-            # 4. Tira o foco da caixa de texto para garantir
-            self.focus() 
-
-            self.log("Conectado na COM8.")
-            self.verificar_csv()
-
-        except Exception as e:
-            messagebox.showerror("Erro de Conexão", f"Verifique o cabo.\nErro: {e}")
-
-    def desconectar(self):
-        if self.ser:
-            self.ser.close()
-        
-        self.ser = None
-        
-        # Volta visual para desconectado
-        self.lbl_status.configure(text="Status: Desconectado", text_color="gray")
-        self.btn_conexao.configure(text="Conectar COM8", fg_color="green")
-        
-        # Desativa captura e LIBERA edição do nome
-        self.btn_capturar.configure(state="disabled")
-        self.entry_arquivo.configure(state="normal")
-        
-        self.lbl_peso.configure(text="--- g")
-        self.log("Desconectado.")
+        nome = self.entry_arquivo.get().strip() or "dados_abba"
+        return nome + ".csv" if not nome.endswith(".csv") else nome
 
     def verificar_csv(self):
         arquivo = self.get_nome_arquivo()
         if not os.path.exists(arquivo):
             try:
-                with open(arquivo, 'w', newline='') as f:
+                with open(arquivo, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter=';')
-                    writer.writerow(['Data', 'Hora', 'Peso (g)'])
-                self.log(f"Arquivo '{arquivo}' criado.")
+                    # NOVA COLUNA: TIPO
+                    writer.writerow(['Data', 'Hora', 'Peso (g)', 'Tipo'])
+                self.log(f"Arquivo '{arquivo}' criado com sucesso.")
             except PermissionError:
-                messagebox.showerror("Erro", f"Feche o arquivo '{arquivo}' no Excel!")
+                messagebox.showerror("Erro", "Feche o arquivo Excel!")
 
-    # --- LÓGICA DE CAPTURA ---
-    def comando_capturar_tecla(self, event):
-        # Só captura se estiver conectado
-        if self.ser and self.ser.is_open:
-            self.capturar_peso()
-
-    def capturar_peso(self):
-        threading.Thread(target=self._rotina_leitura).start()
-
-    def _rotina_leitura(self):
-        self.btn_capturar.configure(fg_color="#E67E22", text="Lendo...") 
-        self.ser.reset_input_buffer()
-        self.ser.write(b'\x1bP\r\n')
-        time.sleep(0.2)
-        
-        peso_lido = None
-        for _ in range(20):
-            if self.ser.in_waiting:
-                try:
-                    raw = self.ser.readline().decode('ascii', errors='ignore')
-                    match = re.search(r"[-+]?\s*\d+\.\d+", raw)
-                    if match:
-                        peso_lido = float(match.group().replace(" ", ""))
-                        break
-                except:
-                    pass
-            time.sleep(0.1)
-
-        if peso_lido is not None:
-            self.salvar_e_mostrar(peso_lido)
+    def abrir_tabela(self):
+        arquivo = self.get_nome_arquivo()
+        if os.path.exists(arquivo):
+            os.startfile(arquivo)
         else:
-            self.log("Erro: Sem resposta.")
-        
-        self.btn_capturar.configure(fg_color="#3B8ED0", text="CAPTURAR (Espaço)")
+            messagebox.showwarning("Aviso", "Arquivo ainda não existe.")
 
-    def salvar_e_mostrar(self, peso):
+    # --- LÓGICA DE CONEXÃO E MONITORAMENTO ---
+    def alternar_conexao(self):
+        if self.ser and self.ser.is_open:
+            self.monitorando = False # Para a thread
+            time.sleep(0.5) # Dá tempo da thread morrer
+            self.ser.close()
+            self.ser = None
+            
+            # Reset Visual
+            self.btn_conexao.configure(text="Conectar COM8", fg_color="green")
+            self.lbl_status.configure(text="Desconectado", text_color="gray")
+            self.lbl_peso.configure(text="--- g")
+            self.entry_arquivo.configure(state="normal")
+            self.btn_A.configure(state="disabled")
+            self.btn_B.configure(state="disabled")
+            self.btn_tarar.configure(state="disabled")
+            self.log("Desconectado.")
+        else:
+            try:
+                self.ser = serial.Serial('COM8', 1200, bytesize=serial.SEVENBITS, parity=serial.PARITY_ODD, stopbits=1, timeout=0.5)
+                self.monitorando = True
+                
+                # Inicia Thread de Leitura Contínua
+                threading.Thread(target=self.thread_monitoramento, daemon=True).start()
+                
+                # Atualiza Visual
+                self.btn_conexao.configure(text="Desconectar", fg_color="red")
+                self.lbl_status.configure(text="Monitorando em Tempo Real...", text_color="#00FF00")
+                self.entry_arquivo.configure(state="disabled")
+                self.btn_A.configure(state="normal")
+                self.btn_B.configure(state="normal")
+                self.btn_tarar.configure(state="normal")
+                
+                self.verificar_csv()
+                self.focus() # Traz foco para a janela para pegar o teclado
+                self.log("Conectado! Iniciando leitura contínua...")
+            
+            except Exception as e:
+                messagebox.showerror("Erro", f"Falha na conexão:\n{e}")
+
+    def thread_monitoramento(self):
+        """ Esta função roda em paralelo O TEMPO TODO enquanto conectado """
+        while self.monitorando and self.ser and self.ser.is_open:
+            try:
+                # 1. Limpa e Pede Peso
+                self.ser.reset_input_buffer()
+                self.ser.write(b'\x1bP\r\n') 
+                
+                # 2. Lê resposta
+                linha = self.ser.readline().decode('ascii', errors='ignore')
+                
+                # 3. Regex para achar numero
+                match = re.search(r"[-+]?\s*\d+\.\d+", linha)
+                if match:
+                    peso_str = match.group().replace(" ", "")
+                    peso_float = float(peso_str)
+                    
+                    # Guarda na variável global da classe para salvar depois
+                    self.ultimo_peso_valido = peso_float 
+                    
+                    # Atualiza a tela (Thread Safe no CustomTkinter)
+                    self.lbl_peso.configure(text=f"{peso_float} g")
+                
+                time.sleep(0.2) # Taxa de atualização (aprox 5Hz)
+                
+            except Exception as e:
+                print(f"Erro no monitoramento: {e}")
+                time.sleep(1)
+
+    # --- COMANDOS DA BALANÇA ---
+    def comando_tarar(self):
+        if self.ser:
+            # Envia comando de Tarar/Zerar (Esc + f4 + _) - Verifique seu manual se é f3 ou f4
+            # Na maioria é Esc + T ou Esc + f4
+            self.ser.write(b'\x1bf4_\r\n') 
+            self.log("Comando TARAR enviado.")
+            time.sleep(0.5) # Pausa para a balança estabilizar
+
+    # --- SALVAMENTO ---
+    def salvar_medida(self, tipo_amostra):
+        # Verifica se estamos conectados e se temos um peso válido lido recentemente
+        if not self.monitorando or self.ultimo_peso_valido is None:
+            self.log("⚠️ Aguarde leitura estável...")
+            return
+
         arquivo = self.get_nome_arquivo()
         agora = datetime.now()
         
         try:
-            with open(arquivo, 'a', newline='') as f:
+            with open(arquivo, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, delimiter=';')
                 writer.writerow([
                     agora.strftime("%d/%m/%Y"), 
                     agora.strftime("%H:%M:%S"), 
-                    str(peso).replace('.', ',')
+                    str(self.ultimo_peso_valido).replace('.', ','),
+                    tipo_amostra # AQUI ENTRA O "A" ou "B"
                 ])
             
-            self.lbl_peso.configure(text=f"{peso} g")
-            self.log(f"Salvo: {peso} g")
+            # Feedback Visual Rápido
+            self.log(f"✅ Salvo: {self.ultimo_peso_valido}g como [{tipo_amostra}]")
             
-        except PermissionError:
-            self.after(0, lambda: messagebox.showerror(
-                "Arquivo Aberto!", 
-                f"O Excel está bloqueando o arquivo '{arquivo}'.\nFeche-o e tente novamente."
-            ))
+            # Pisca a cor do botão correspondente
+            if "A" in tipo_amostra:
+                self.flash_button(self.btn_A)
+            elif "B" in tipo_amostra:
+                self.flash_button(self.btn_B)
 
+        except PermissionError:
+            messagebox.showerror("Erro", "Excel aberto! Feche para salvar.")
+
+    def flash_button(self, btn):
+        # Efeitinho visual para confirmar o clique
+        cor_original = btn._fg_color
+        btn.configure(fg_color="white", text_color="black")
+        self.after(100, lambda: btn.configure(fg_color=cor_original, text_color="white"))
+    
     def log(self, msg):
-        self.textbox_log.insert("end", msg + "\n")
-        self.textbox_log.see("end")
+        self.textbox_log.insert("0.0", msg + "\n") # Insere no topo
 
 if __name__ == "__main__":
     app = AppBalanca()
