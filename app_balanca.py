@@ -5,6 +5,7 @@ import re
 import csv
 import threading
 import os
+import sys  # <--- IMPORTANTE: Necessário para acessar arquivos internos do .exe
 from datetime import datetime
 from tkinter import messagebox
 
@@ -12,31 +13,47 @@ from tkinter import messagebox
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
+# --- FIX DE ÍCONE: Função para achar arquivos dentro do .exe ---
+def resource_path(relative_path):
+    """ Retorna o caminho absoluto, funcionado tanto em dev quanto no PyInstaller """
+    try:
+        # PyInstaller cria uma pasta temporária e guarda o caminho em _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
 class AppBalanca(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        # Configurações da Janela
-        self.title("SOMA - Metrologia ABBA v4.0")
+        self.title("SISAQUI - Sistema de Aquisição") 
         self.geometry("700x600")
         self.resizable(False, False)
 
+        # --- FIX DE ÍCONE: Carregamento Blindado ---
+        # Usamos resource_path para garantir que ele ache o ícone mesmo dentro do .exe
+        caminho_icone = resource_path("icone_sartorius.ico")
+        
+        try:
+            self.iconbitmap(caminho_icone)
+        except Exception as e:
+            print(f"Erro ao carregar ícone: {e}")
+            # Se der erro, não faz nada (fica a pena), mas imprime o erro no console se tiver
+
         # Variáveis de Controle
         self.ser = None
-        self.monitorando = False # Controle da Thread
-        self.ultimo_peso_valido = None # Guarda o valor para salvar instantaneamente
+        self.monitorando = False
+        self.ultimo_peso_valido = None
         
-        # --- LAYOUT ---
         self.criar_interface()
         
-        # Atalhos de teclado (ABBA)
-        # O 'bind' conecta a tecla física a uma função
+        # Atalhos
         self.bind('<a>', lambda event: self.salvar_medida("Padrão (A)"))
-        self.bind('<A>', lambda event: self.salvar_medida("Padrão (A)")) # CapsLock
+        self.bind('<A>', lambda event: self.salvar_medida("Padrão (A)"))
         self.bind('<b>', lambda event: self.salvar_medida("Objeto (B)"))
-        self.bind('<B>', lambda event: self.salvar_medida("Objeto (B)")) # CapsLock
-        
-        # Mantive o Espaço como genérico (sem tipo especificado ou Padrão, você decide)
+        self.bind('<B>', lambda event: self.salvar_medida("Objeto (B)"))
         self.bind('<space>', lambda event: self.salvar_medida("Genérico"))
 
     def criar_interface(self):
@@ -49,42 +66,38 @@ class AppBalanca(ctk.CTk):
 
         self.entry_arquivo = ctk.CTkEntry(self.frame_arquivo, width=200, placeholder_text="Nome do arquivo")
         self.entry_arquivo.pack(side="left", padx=5)
-        self.entry_arquivo.insert(0, "calibracao_ABBA")
+        self.entry_arquivo.insert(0, "ensaio_metrologia") 
         
         self.btn_abrir = ctk.CTkButton(self.frame_arquivo, text="📂 Excel", command=self.abrir_tabela, width=80)
         self.btn_abrir.pack(side="right", padx=10)
 
-        # 2. Painel de Conexão e Controle
+        # 2. Painel de Conexão
         self.frame_topo = ctk.CTkFrame(self)
         self.frame_topo.pack(pady=5, padx=10, fill="x")
 
         self.btn_conexao = ctk.CTkButton(self.frame_topo, text="Conectar COM8", command=self.alternar_conexao, fg_color="green")
         self.btn_conexao.pack(side="left", padx=10)
         
-        # Botões de Controle da Balança (Novidade)
         self.btn_tarar = ctk.CTkButton(self.frame_topo, text="ZERAR / TARAR", command=self.comando_tarar, fg_color="#555555", width=120)
         self.btn_tarar.pack(side="right", padx=10)
         self.btn_tarar.configure(state="disabled")
 
-        # 3. Painel Central (Display Real-Time)
+        # 3. Painel Central (Display)
         self.frame_display = ctk.CTkFrame(self)
         self.frame_display.pack(pady=10, padx=20, fill="both", expand=True)
 
-        self.lbl_titulo = ctk.CTkLabel(self.frame_display, text="LEITURA EM TEMPO REAL", font=("Arial", 14, "bold"), text_color="gray")
+        self.lbl_titulo = ctk.CTkLabel(self.frame_display, text="LEITURA SISAQUI (Real-Time)", font=("Arial", 14, "bold"), text_color="gray")
         self.lbl_titulo.pack(pady=(15, 0))
 
-        # O numero grandão
         self.lbl_peso = ctk.CTkLabel(self.frame_display, text="--- g", font=("Roboto", 70, "bold"))
         self.lbl_peso.pack(pady=10)
         
         self.lbl_status = ctk.CTkLabel(self.frame_display, text="Desconectado", text_color="gray")
         self.lbl_status.pack(pady=5)
 
-        # 4. Painel de Ação (Botoes Gigantes para ABBA)
+        # 4. Painel de Ação (ABBA)
         self.frame_acoes = ctk.CTkFrame(self)
         self.frame_acoes.pack(pady=10, padx=10, fill="x")
-
-        # Grid para dividir os botões
         self.frame_acoes.columnconfigure(0, weight=1)
         self.frame_acoes.columnconfigure(1, weight=1)
 
@@ -96,18 +109,17 @@ class AppBalanca(ctk.CTk):
                                    command=lambda: self.salvar_medida("Objeto (B)"), fg_color="#e67e22")
         self.btn_B.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
 
-        # Começam desativados
         self.btn_A.configure(state="disabled")
         self.btn_B.configure(state="disabled")
 
-        # Área de Log
+        # Log
         self.textbox_log = ctk.CTkTextbox(self, height=100)
         self.textbox_log.pack(pady=10, padx=10, fill="x")
-        self.textbox_log.insert("0.0", "Use teclas 'A' e 'B' do teclado para capturar.\n")
+        self.textbox_log.insert("0.0", "SISAQUI Iniciado. Conecte para começar.\n")
 
-    # --- LÓGICA DE ARQUIVO ---
+    # --- LÓGICA GERAL ---
     def get_nome_arquivo(self):
-        nome = self.entry_arquivo.get().strip() or "dados_abba"
+        nome = self.entry_arquivo.get().strip() or "dados_sisaqui"
         return nome + ".csv" if not nome.endswith(".csv") else nome
 
     def verificar_csv(self):
@@ -116,9 +128,8 @@ class AppBalanca(ctk.CTk):
             try:
                 with open(arquivo, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter=';')
-                    # NOVA COLUNA: TIPO
                     writer.writerow(['Data', 'Hora', 'Peso (g)', 'Tipo'])
-                self.log(f"Arquivo '{arquivo}' criado com sucesso.")
+                self.log(f"Arquivo '{arquivo}' criado.")
             except PermissionError:
                 messagebox.showerror("Erro", "Feche o arquivo Excel!")
 
@@ -129,15 +140,12 @@ class AppBalanca(ctk.CTk):
         else:
             messagebox.showwarning("Aviso", "Arquivo ainda não existe.")
 
-    # --- LÓGICA DE CONEXÃO E MONITORAMENTO ---
     def alternar_conexao(self):
         if self.ser and self.ser.is_open:
-            self.monitorando = False # Para a thread
-            time.sleep(0.5) # Dá tempo da thread morrer
+            self.monitorando = False
+            time.sleep(0.5)
             self.ser.close()
             self.ser = None
-            
-            # Reset Visual
             self.btn_conexao.configure(text="Conectar COM8", fg_color="green")
             self.lbl_status.configure(text="Desconectado", text_color="gray")
             self.lbl_peso.configure(text="--- g")
@@ -150,66 +158,43 @@ class AppBalanca(ctk.CTk):
             try:
                 self.ser = serial.Serial('COM8', 1200, bytesize=serial.SEVENBITS, parity=serial.PARITY_ODD, stopbits=1, timeout=0.5)
                 self.monitorando = True
-                
-                # Inicia Thread de Leitura Contínua
                 threading.Thread(target=self.thread_monitoramento, daemon=True).start()
-                
-                # Atualiza Visual
                 self.btn_conexao.configure(text="Desconectar", fg_color="red")
-                self.lbl_status.configure(text="Monitorando em Tempo Real...", text_color="#00FF00")
+                self.lbl_status.configure(text="Monitorando...", text_color="#00FF00")
                 self.entry_arquivo.configure(state="disabled")
                 self.btn_A.configure(state="normal")
                 self.btn_B.configure(state="normal")
                 self.btn_tarar.configure(state="normal")
-                
                 self.verificar_csv()
-                self.focus() # Traz foco para a janela para pegar o teclado
-                self.log("Conectado! Iniciando leitura contínua...")
-            
+                self.focus()
+                self.log("Conectado! Leitura iniciada.")
             except Exception as e:
                 messagebox.showerror("Erro", f"Falha na conexão:\n{e}")
 
     def thread_monitoramento(self):
-        """ Esta função roda em paralelo O TEMPO TODO enquanto conectado """
         while self.monitorando and self.ser and self.ser.is_open:
             try:
-                # 1. Limpa e Pede Peso
                 self.ser.reset_input_buffer()
                 self.ser.write(b'\x1bP\r\n') 
-                
-                # 2. Lê resposta
                 linha = self.ser.readline().decode('ascii', errors='ignore')
-                
-                # 3. Regex para achar numero
                 match = re.search(r"[-+]?\s*\d+\.\d+", linha)
                 if match:
                     peso_str = match.group().replace(" ", "")
                     peso_float = float(peso_str)
-                    
-                    # Guarda na variável global da classe para salvar depois
                     self.ultimo_peso_valido = peso_float 
-                    
-                    # Atualiza a tela (Thread Safe no CustomTkinter)
                     self.lbl_peso.configure(text=f"{peso_float} g")
-                
-                time.sleep(0.2) # Taxa de atualização (aprox 5Hz)
-                
+                time.sleep(0.2)
             except Exception as e:
                 print(f"Erro no monitoramento: {e}")
                 time.sleep(1)
 
-    # --- COMANDOS DA BALANÇA ---
     def comando_tarar(self):
         if self.ser:
-            # Envia comando de Tarar/Zerar (Esc + f4 + _) - Verifique seu manual se é f3 ou f4
-            # Na maioria é Esc + T ou Esc + f4
             self.ser.write(b'\x1bf4_\r\n') 
             self.log("Comando TARAR enviado.")
-            time.sleep(0.5) # Pausa para a balança estabilizar
+            time.sleep(0.5)
 
-    # --- SALVAMENTO ---
     def salvar_medida(self, tipo_amostra):
-        # Verifica se estamos conectados e se temos um peso válido lido recentemente
         if not self.monitorando or self.ultimo_peso_valido is None:
             self.log("⚠️ Aguarde leitura estável...")
             return
@@ -220,33 +205,23 @@ class AppBalanca(ctk.CTk):
         try:
             with open(arquivo, 'a', newline='', encoding='utf-8') as f:
                 writer = csv.writer(f, delimiter=';')
-                writer.writerow([
-                    agora.strftime("%d/%m/%Y"), 
-                    agora.strftime("%H:%M:%S"), 
-                    str(self.ultimo_peso_valido).replace('.', ','),
-                    tipo_amostra # AQUI ENTRA O "A" ou "B"
-                ])
+                writer.writerow([agora.strftime("%d/%m/%Y"), agora.strftime("%H:%M:%S"), str(self.ultimo_peso_valido).replace('.', ','), tipo_amostra])
             
-            # Feedback Visual Rápido
             self.log(f"✅ Salvo: {self.ultimo_peso_valido}g como [{tipo_amostra}]")
-            
-            # Pisca a cor do botão correspondente
             if "A" in tipo_amostra:
                 self.flash_button(self.btn_A)
             elif "B" in tipo_amostra:
                 self.flash_button(self.btn_B)
-
         except PermissionError:
             messagebox.showerror("Erro", "Excel aberto! Feche para salvar.")
 
     def flash_button(self, btn):
-        # Efeitinho visual para confirmar o clique
         cor_original = btn._fg_color
         btn.configure(fg_color="white", text_color="black")
         self.after(100, lambda: btn.configure(fg_color=cor_original, text_color="white"))
     
     def log(self, msg):
-        self.textbox_log.insert("0.0", msg + "\n") # Insere no topo
+        self.textbox_log.insert("0.0", msg + "\n")
 
 if __name__ == "__main__":
     app = AppBalanca()
