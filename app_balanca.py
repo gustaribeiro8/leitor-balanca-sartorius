@@ -45,8 +45,8 @@ class AppBalanca(ctk.CTk):
         # Atalhos
         self.bind('<a>', lambda event: self.salvar_medida("Padrao (A)"))
         self.bind('<A>', lambda event: self.salvar_medida("Padrao (A)"))
-        self.bind('<b>', lambda event: self.salvar_medida("Objeto (B)"))
-        self.bind('<B>', lambda event: self.salvar_medida("Objeto (B)"))
+        self.bind('<b>', lambda event: self.salvar_medida("Cliente (B)"))
+        self.bind('<B>', lambda event: self.salvar_medida("Cliente (B)"))
         self.bind('<space>', lambda event: self.salvar_medida("Generico"))
 
     def criar_interface(self):
@@ -121,8 +121,6 @@ class AppBalanca(ctk.CTk):
         self.textbox_log = ctk.CTkTextbox(self, height=100)
         self.textbox_log.pack(pady=10, padx=10, fill="x")
         self.textbox_log.insert("0.0", "Bem-vindo. Selecione a porta COM acima.\n")
-        self.textbox_log.insert("0.0", "Atalhos: 'A' para Padrão, 'B' para Cliente, 'Espaço' para Genérico.\n")
-        self.textbox_log.insert("0.0", "Caso de ERRO 30, desligue da tomada e aguarde alguns segundos.\n")
 
     # --- NOVA FUNÇÃO: Listar Portas ---
     def listar_portas_disponiveis(self):
@@ -137,7 +135,7 @@ class AppBalanca(ctk.CTk):
         
         self.combo_portas.configure(values=lista_portas)
         self.combo_portas.set(lista_portas[0]) # Seleciona a primeira
-        self.log(f"Portas encontradas: {', '.join(lista_portas)}")
+        self.log(f"Portas encontradas: {', '.join(lista_portas)}\n")
 
     # --- LÓGICA GERAL ---
     def get_nome_arquivo(self):
@@ -202,7 +200,7 @@ class AppBalanca(ctk.CTk):
                 self.btn_tarar.configure(state="normal")
                 self.verificar_csv()
                 self.focus()
-                self.log(f"Conectado na {porta_escolhida}!")
+                self.log(f"Conectado na {porta_escolhida}!\n")
             except Exception as e:
                 messagebox.showerror("Erro", f"Falha na conexão com {porta_escolhida}:\n{e}")
 
@@ -226,7 +224,7 @@ class AppBalanca(ctk.CTk):
     def comando_tarar(self):
         if self.ser:
             self.ser.write(b'\x1bf4_\r\n') 
-            self.log("Comando TARAR enviado.")
+            self.log("\nComando de TARA enviado.\n")
             time.sleep(0.5)
 
     def salvar_medida(self, tipo_amostra):
@@ -256,7 +254,8 @@ class AppBalanca(ctk.CTk):
         self.after(100, lambda: btn.configure(fg_color=cor_original, text_color="white"))
     
     def log(self, msg):
-        self.textbox_log.insert("0.0", msg + "\n")
+        self.textbox_log.insert("end", msg + "\n")
+        self.textbox_log.see("end")
 
 if __name__ == "__main__":
     app = AppBalanca()
