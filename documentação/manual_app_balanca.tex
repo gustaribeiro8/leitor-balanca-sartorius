@@ -1,0 +1,281 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+
+\title{Manual do Usuário - SISAQUI \\ Sistema de Aquisição Universal para Balanças \\ Laboratório de Medições Mecânicas (LMM) - IPT}
+\author{Gustavo dos Santos Ribeiro \\ Victor Nascimento Pereira}
+\date{Janeiro de 2026}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introdução}
+
+O SISAQUI (Sistema de Aquisição Universal) é uma aplicação desenvolvida especificamente para o Laboratório de Medições Mecânicas (LMM) do Instituto de Pesquisas Tecnológicas (IPT), com o objetivo de automatizar a coleta de dados de balanças Sartorius via conexão serial. Este software facilita medições metrológicas precisas, salvando dados em arquivos CSV para análise posterior.
+
+Desenvolvido por Gustavo dos Santos Ribeiro e Victor Nascimento Pereira, o SISAQUI oferece uma interface intuitiva para usuários finais e um código modular para desenvolvedores, garantindo eficiência e confiabilidade nas operações laboratoriais.
+
+\part{Manual para Usuário Final}
+
+\section{Instalação para Usuários Finais}
+Para usuários finais do laboratório, o SISAQUI é distribuído como um executável standalone, não requerendo instalação de dependências adicionais.
+
+\subsection{Requisitos do Sistema}
+
+\begin{itemize}
+\item Sistema Operacional: Windows 10 ou superior
+\item Espaço em disco: Mínimo 50 MB
+\item Porta serial disponível (COM) e driver do cabo sendo usado para conexão com a balança Sartorius
+\end{itemize}
+
+\subsection{Instalação}
+\begin{enumerate}
+\item Acesse a pasta de rede "automatização de balanças".
+\item Abra o executável \texttt{app\_balanca.exe}.
+\item Execute o arquivo diretamente. Não é necessária instalação adicional.
+\end{enumerate}
+
+\textbf{Nota:} Certifique-se de que o antivírus não bloqueie a execução do arquivo. Se necessário, adicione uma exceção para o executável.
+
+\section{Uso do Aplicativo}
+
+\subsection{Inicialização}
+\begin{enumerate}
+\item Ligue a balança Sartorius e aguarde de 30 segundos a 1 minuto para que ela estabilize completamente.
+\item Conecte o cabo serial (USB) da balança ao computador.
+\item Abra o aplicativo SISAQUI executando o arquivo \texttt{app\_balanca.exe}.
+\item Selecione a porta COM correspondente à balança no menu suspenso.
+\item Clique em "Conectar" para estabelecer a comunicação serial.
+\end{enumerate}
+
+\subsection{Interface do Aplicativo}
+A interface principal do SISAQUI é dividida em painéis intuitivos, facilitando o uso por usuários do laboratório.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{figuras/interface_principal.png}
+\caption{Interface principal do SISAQUI mostrando os painéis de arquivo, conexão, display e ações.}
+\label{fig:interface}
+\end{figure}
+
+\subsection{Configuração do Arquivo de Dados}
+\begin{itemize}
+\item No campo "Ensaio:", insira o nome do arquivo onde você quer que os dados sejam salvos (ex.: \texttt{ensaio\_metrologia}).
+\item Os dados serão salvos automaticamente na subpasta \texttt{dados coletados/} no arquivo com o nome escolhido (ex.: \texttt{ensaio\_metrologia}).
+\end{itemize}
+
+\subsection{Leitura e Salvamento de Dados}
+\begin{itemize}
+\item Após conectar, a leitura em tempo real será exibida no painel central.
+\item Use os botões "PADRÃO (A)" ou "CLIENTE (B)" para salvar medições.
+\item Atalhos de teclado:
+  \begin{itemize}
+  \item \texttt{A} ou \texttt{a}: Salvar como Padrão (A)
+  \item \texttt{B} ou \texttt{b}: Salvar como Cliente (B)
+  \item \texttt{Espaço}: Salvar como Genérico
+  \end{itemize}
+\end{itemize}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.8\textwidth]{figuras/salvamento_dados.png}
+\caption{Demonstração do salvamento de dados com botões destacados.}
+\label{fig:salvamento}
+\end{figure}
+
+Note que ao salvar uma medição o painel de log do aplicativo indica que esta foi salva e qual seu tipo (Padrão, Cliente ou Genérico).
+
+\subsection{Comandos Adicionais}
+\begin{itemize}
+\item Botão "ZERAR": Tara a balança (envia comando de tara).
+\item Botão "Excel": Abre o arquivo CSV no Microsoft Excel (se instalado).
+\end{itemize}
+
+\subsection{Encerramento}
+\begin{itemize}
+\item Clique em "Desconectar" antes de fechar o aplicativo para liberar a porta serial.
+\item O aplicativo fecha automaticamente a conexão serial ao ser fechado.
+\end{itemize}
+Jamais puxe o cabo serial enquanto o aplicativo estiver conectado, para evitar erros de comunicação, sempre clique em "Desconectar" antes de mexer no cabo.
+
+\section{Troubleshooting para Usuários Finais}
+
+\subsection{Erro de Conexão Serial}
+\begin{itemize}
+\item Verifique se a balança está ligada e conectada corretamente à porta COM selecionada.
+\item Certifique-se de que nenhum outro programa está usando a porta serial.
+\item Reinicie o aplicativo e tente conectar novamente.
+\end{itemize}
+
+\subsection{Erro 30 - Porta Serial Ocupada}
+O erro 30 indica que a porta serial está bloqueada. Siga estes passos:
+
+\begin{enumerate}
+    \item \textbf{Desligue a balança:} Desconecte a energia da balança.
+    \item \textbf{Remova o cabo serial:} Desconecte o cabo USB/serial da balança e do computador.
+    \item \textbf{Espere 30 segundos:} Aguarde pelo menos 30 segundos.
+    \item \textbf{Conecte apenas a alimentação:} Reconecte o cabo de alimentação da balança (sem o cabo serial).
+    \item \textbf{Ligue a balança:} Ligue a balança e aguarde estabilização.
+    \item \textbf{Espere 1 minuto:} Aguarde 1 minuto completo.
+    \item \textbf{Conecte o cabo serial:} Agora conecte o cabo USB/serial.
+    \item \textbf{Reinicie o aplicativo:} Abra o SISAQUI novamente e tente conectar.
+\end{enumerate}
+
+\subsection{Arquivo CSV Não Abre}
+\begin{itemize}
+\item Certifique-se de que o Microsoft Excel ou um leitor de CSV compatível está instalado.
+\item Feche o arquivo se estiver aberto em outro programa.
+\item Verifique se o arquivo foi criado na subpasta \texttt{dados coletados/}.
+\end{itemize}
+
+\subsection{Problemas Gerais}
+\begin{itemize}
+\item Consulte o painel de log inferior para mensagens de erro, bem como o painel da balança.
+\item Reinicie o computador se os problemas persistirem.
+\item Entre em contato com a equipe do LMM para suporte.
+\end{itemize}
+
+\part{Manual para Desenvolvedores}
+
+\section{Instalação para Desenvolvedores}
+Para desenvolvimento e modificações no código, é necessário configurar o ambiente Python.
+
+\subsection{Requisitos do Sistema}
+\begin{itemize}
+\item Python 3.8 ou superior
+\item Git para controle de versão
+\item Editor de código (recomendado: Visual Studio Code)
+\end{itemize}
+
+\subsection{Instalação do Ambiente}
+\begin{enumerate}
+\item Clone o repositório:
+   \begin{verbatim}
+   git clone https://github.com/gustaribeiro8/leitor-balanca-sartorius.git
+   cd automatizacao_balanca
+   \end{verbatim}
+
+\item Crie um ambiente virtual (recomendado):
+   \begin{verbatim}
+   python -m venv .venv
+   \end{verbatim}
+
+\item Ative o ambiente virtual:
+   \begin{itemize}
+   \item No Windows: \texttt{.venv\textbackslash Scripts\textbackslash activate}
+   \item No Linux/Mac: \texttt{source .venv/bin/activate}
+   \end{itemize}
+
+\item Instale as dependências:
+   \begin{verbatim}
+   pip install -r requirements.txt
+   \end{verbatim}
+
+\item Execute o aplicativo em modo desenvolvimento:
+   \begin{verbatim}
+   python app_balanca.py
+   \end{verbatim}
+\end{enumerate}
+
+\subsection{Geração do Executável}
+Para criar um executável standalone:
+\begin{verbatim}
+python -m PyInstaller --noconsole --onefile --clean --icon=icone_sartorius.ico --add-data "icone_sartorius.ico;." app_balanca.py
+\end{verbatim}
+
+O executável será gerado na pasta \texttt{dist/}.
+
+\section{Estrutura do Código}
+
+\subsection{Principais Arquivos}
+\begin{itemize}
+\item \texttt{app\_balanca.py}: Arquivo principal da aplicação.
+\item \texttt{leitura\_balanca.py}: Módulo para comunicação serial (se separado).
+\item \texttt{icone\_sartorius.ico}: Ícone da aplicação.
+\item \texttt{.gitignore}: Arquivo para ignorar arquivos no Git.
+\end{itemize}
+
+\subsection{Classe Principal: AppBalanca}
+A classe \texttt{AppBalanca} herda de \texttt{ctk.CTk} e gerencia a interface gráfica.
+
+\subsubsection{Métodos Principais}
+\begin{itemize}
+\item \texttt{\_\_init\_\_()}: Inicializa a interface e configurações.
+\item \texttt{criar\_interface()}: Cria os elementos da GUI.
+\item \texttt{alternar\_conexao()}: Conecta/desconecta da balança.
+\item \texttt{salvar\_medida()}: Salva medições no CSV.
+\item \texttt{thread\_monitoramento()}: Thread para leitura contínua.
+\end{itemize}
+
+\subsection{Comunicação Serial}
+\begin{itemize}
+\item Usa a biblioteca \texttt{pyserial} para comunicação.
+\item Configuração: 1200 baud, 7 bits, paridade ímpar, 1 stop bit.
+\item Comando de leitura: \texttt{\textbackslash x1bP\textbackslash r\textbackslash n}
+\item Comando de tara: \texttt{\textbackslash x1bf4\_\textbackslash r\textbackslash n}
+\end{itemize}
+
+\section{Desenvolvimento e Modificações}
+
+\subsection{Adicionando Novas Funcionalidades}
+\begin{enumerate}
+\item Analise os requisitos da nova funcionalidade e planeje as modificações necessárias.
+\item Modifique a classe \texttt{AppBalanca} ou crie novos métodos conforme necessário.
+\item Teste as alterações executando o script em modo desenvolvimento.
+\item Verifique se a nova funcionalidade não quebra funcionalidades existentes.
+\item Atualize a documentação, incluindo este manual, se aplicável.
+\item Commite as mudanças no repositório Git com uma mensagem descritiva.
+\end{enumerate}
+
+\subsection{Debugging}
+\begin{itemize}
+\item Use o painel de log para depurar.
+\item Adicione prints temporários para variáveis críticas.
+\item Verifique a porta serial com ferramentas como PuTTY.
+\end{itemize}
+
+\subsection{Versionamento}
+\begin{itemize}
+\item Use Git para controle de versão.
+\item Commite mudanças regularmente.
+\item Ignore arquivos temporários com \texttt{.gitignore}.
+\end{itemize}
+
+\section{Troubleshooting para Desenvolvedores}
+
+\subsection{Erros de Importação}
+\begin{itemize}
+\item Certifique-se de que todas as dependências estão instaladas.
+\item Verifique a versão do Python (3.8+).
+\end{itemize}
+
+\subsection{Problemas de Serial}
+\begin{itemize}
+\item Teste a conexão serial com um terminal serial simples.
+\item Verifique se a balança responde aos comandos.
+\end{itemize}
+
+\subsection{Erros de Build}
+\begin{itemize}
+\item Limpe as pastas \texttt{build/} e \texttt{dist/} antes de rebuildar.
+\item Execute como administrador se houver permissões.
+\end{itemize}
+
+\subsection{Contribuição}
+\begin{itemize}
+\item Siga as boas práticas de código Python.
+\item Documente funções e classes.
+\item Teste em diferentes ambientes.
+\end{itemize}
+
+\end{document}
