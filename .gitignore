@@ -6,4 +6,5 @@ __pycache__/
 # Documentação: ignorar tudo exceto .tex e figuras
 documentação/*
 !documentação/*.tex
+!documentação/*.pdf
 !documentação/figuras/
