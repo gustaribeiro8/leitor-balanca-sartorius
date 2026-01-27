@@ -49,6 +49,9 @@ class AppBalanca(ctk.CTk):
         self.bind('<B>', lambda event: self.salvar_medida("Cliente (B)"))
         self.bind('<space>', lambda event: self.salvar_medida("Generico"))
 
+        # Handler para fechamento da janela
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
     def criar_interface(self):
         # 1. Painel de Arquivo
         self.frame_arquivo = ctk.CTkFrame(self)
@@ -259,6 +262,13 @@ class AppBalanca(ctk.CTk):
     def log(self, msg):
         self.textbox_log.insert("end", msg + "\n")
         self.textbox_log.see("end")
+
+    def on_closing(self):
+        if self.ser and self.ser.is_open:
+            self.monitorando = False
+            time.sleep(0.5)
+            self.ser.close()
+        self.destroy()
 
 if __name__ == "__main__":
     app = AppBalanca()

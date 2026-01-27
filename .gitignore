@@ -1,0 +1,4 @@
+*.csv
+build/
+dist/
+__pycache__/
