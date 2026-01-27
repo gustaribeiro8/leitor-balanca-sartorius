@@ -139,8 +139,11 @@ class AppBalanca(ctk.CTk):
 
     # --- LÓGICA GERAL ---
     def get_nome_arquivo(self):
+        nome_pasta = "dados coletados"
+        if not os.path.exists(nome_pasta):
+            os.makedirs(nome_pasta)
         nome = self.entry_arquivo.get().strip() or "dados_sisaqui"
-        return nome + ".csv" if not nome.endswith(".csv") else nome
+        return os.path.join(nome_pasta, nome + ".csv" if not nome.endswith(".csv") else nome)
 
     def verificar_csv(self):
         arquivo = self.get_nome_arquivo()
