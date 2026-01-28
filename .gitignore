@@ -3,6 +3,7 @@ build/
 dist/
 __pycache__/
 .venv/
+*.rar
 
 # Documentação: ignorar tudo exceto .tex e figuras
 documentação/*
