@@ -1,16 +1,15 @@
 import customtkinter as ctk
 import serial
-import serial.tools.list_ports # Biblioteca para achar as portas
+import serial.tools.list_ports
 import time
 import re
 import csv
 import threading
 import os
 import sys
-from datetime import datetime
 from tkinter import messagebox
 
-# --- CONFIGURAÇÕES VISUAIS ---
+# --- CONFIGURAÇÕES ---
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 
@@ -25,8 +24,8 @@ class AppBalanca(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("SISAQUI - Sistema de Aquisição Universal") 
-        self.geometry("700x650") # Aumentei um pouco para caber o menu de portas
+        self.title("SISAQUI - Modo Planilha Livre v8.1") 
+        self.geometry("750x700")
         self.resizable(False, False)
 
         caminho_icone = resource_path("icone_sartorius.ico")
@@ -39,47 +38,47 @@ class AppBalanca(ctk.CTk):
         self.monitorando = False
         self.ultimo_peso_valido = None
         
+        # --- MEMÓRIA DA PLANILHA (LISTA DE DICIONÁRIOS) ---
+        # Estrutura simplificada: [{'A': '100,0005', 'B': ''}, ...]
+        self.dados_memoria = [] 
+        self.cursor_A = 0 
+        self.cursor_B = 0 
+
         self.criar_interface()
-        self.listar_portas_disponiveis() # Já busca as portas ao abrir
+        self.listar_portas_disponiveis()
         
         # Atalhos
-        self.bind('<a>', lambda event: self.salvar_medida("Padrao (A)"))
-        self.bind('<A>', lambda event: self.salvar_medida("Padrao (A)"))
-        self.bind('<b>', lambda event: self.salvar_medida("Cliente (B)"))
-        self.bind('<B>', lambda event: self.salvar_medida("Cliente (B)"))
-        self.bind('<space>', lambda event: self.salvar_medida("Generico"))
-
-        # Handler para fechamento da janela
+        self.bind('<a>', lambda event: self.capturar_coluna("A"))
+        self.bind('<A>', lambda event: self.capturar_coluna("A"))
+        self.bind('<b>', lambda event: self.capturar_coluna("B"))
+        self.bind('<B>', lambda event: self.capturar_coluna("B"))
+        
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def criar_interface(self):
-        # 1. Painel de Arquivo
+        # 1. Arquivo
         self.frame_arquivo = ctk.CTkFrame(self)
         self.frame_arquivo.pack(pady=(15, 5), padx=10, fill="x")
         
         self.lbl_arq = ctk.CTkLabel(self.frame_arquivo, text="Ensaio:", font=("Arial", 12, "bold"))
         self.lbl_arq.pack(side="left", padx=10)
 
-        self.entry_arquivo = ctk.CTkEntry(self.frame_arquivo, width=200, placeholder_text="Nome do arquivo")
+        self.entry_arquivo = ctk.CTkEntry(self.frame_arquivo, width=200)
         self.entry_arquivo.pack(side="left", padx=5)
-        self.entry_arquivo.insert(0, "ensaio_metrologia") 
+        self.entry_arquivo.insert(0, "ensaio_livre") 
         
         self.btn_abrir = ctk.CTkButton(self.frame_arquivo, text="📂 Excel", command=self.abrir_tabela, width=80)
         self.btn_abrir.pack(side="right", padx=10)
 
-        # 2. Painel de Conexão (AGORA COM SELETOR)
+        # 2. Conexão
         self.frame_topo = ctk.CTkFrame(self)
         self.frame_topo.pack(pady=5, padx=10, fill="x")
 
-        # Label simples
         self.lbl_porta = ctk.CTkLabel(self.frame_topo, text="Porta:", font=("Arial", 11))
         self.lbl_porta.pack(side="left", padx=(10, 2))
 
-        # MENU DE ESCOLHA DA PORTA
-        self.combo_portas = ctk.CTkComboBox(self.frame_topo, values=["Procurando..."], width=100)
+        self.combo_portas = ctk.CTkComboBox(self.frame_topo, values=["..."], width=100)
         self.combo_portas.pack(side="left", padx=5)
-
-        # Botão Atualizar Lista (ícone de refresh improvisado)
         self.btn_refresh = ctk.CTkButton(self.frame_topo, text="⟳", width=30, command=self.listar_portas_disponiveis)
         self.btn_refresh.pack(side="left", padx=2)
 
@@ -90,7 +89,7 @@ class AppBalanca(ctk.CTk):
         self.btn_tarar.pack(side="right", padx=10)
         self.btn_tarar.configure(state="disabled")
 
-        # 3. Painel Central (Display)
+        # 3. Display
         self.frame_display = ctk.CTkFrame(self)
         self.frame_display.pack(pady=10, padx=20, fill="both", expand=True)
 
@@ -100,51 +99,51 @@ class AppBalanca(ctk.CTk):
         self.lbl_peso = ctk.CTkLabel(self.frame_display, text="--- g", font=("Roboto", 70, "bold"))
         self.lbl_peso.pack(pady=10)
         
-        self.lbl_status = ctk.CTkLabel(self.frame_display, text="Selecione a porta e conecte", text_color="gray")
+        self.lbl_status = ctk.CTkLabel(self.frame_display, text="Conecte para iniciar", text_color="gray")
         self.lbl_status.pack(pady=5)
 
-        # 4. Painel de Ação (ABBA)
+        # 4. Ações e Contadores
         self.frame_acoes = ctk.CTkFrame(self)
         self.frame_acoes.pack(pady=10, padx=10, fill="x")
         self.frame_acoes.columnconfigure(0, weight=1)
         self.frame_acoes.columnconfigure(1, weight=1)
 
-        self.btn_A = ctk.CTkButton(self.frame_acoes, text=" PADRÃO (A) ", height=60, 
-                                   command=lambda: self.salvar_medida("Padrao (A)"), fg_color="#2980b9")
-        self.btn_A.grid(row=0, column=0, padx=5, pady=10, sticky="ew")
+        # Botão A
+        self.btn_A = ctk.CTkButton(self.frame_acoes, text="CAPTURA COLUNA A", height=50, 
+                                   command=lambda: self.capturar_coluna("A"), fg_color="#2980b9")
+        self.btn_A.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         
-        self.btn_B = ctk.CTkButton(self.frame_acoes, text=" CLIENTE (B) ", height=60, 
-                                   command=lambda: self.salvar_medida("Cliente (B)"), fg_color="#e67e22")
-        self.btn_B.grid(row=0, column=1, padx=5, pady=10, sticky="ew")
+        # Contador A
+        self.lbl_count_A = ctk.CTkLabel(self.frame_acoes, text="Amostras A: 0", font=("Arial", 16, "bold"))
+        self.lbl_count_A.grid(row=1, column=0, pady=5)
+
+        # Botão B
+        self.btn_B = ctk.CTkButton(self.frame_acoes, text="CAPTURA COLUNA B", height=50, 
+                                   command=lambda: self.capturar_coluna("B"), fg_color="#e67e22")
+        self.btn_B.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+
+        # Contador B
+        self.lbl_count_B = ctk.CTkLabel(self.frame_acoes, text="Amostras B: 0", font=("Arial", 16, "bold"))
+        self.lbl_count_B.grid(row=1, column=1, pady=5)
 
         self.btn_A.configure(state="disabled")
         self.btn_B.configure(state="disabled")
 
         # Log
-        self.textbox_log = ctk.CTkTextbox(self, height=100)
+        self.textbox_log = ctk.CTkTextbox(self, height=80)
         self.textbox_log.pack(pady=10, padx=10, fill="x")
-        self.textbox_log.insert("0.0", "Bem-vindo. Selecione a porta COM acima.\n")
+        self.textbox_log.insert("0.0", "Dica: Colunas independentes. Pode fazer varios A e depois varios B.\n")
 
-    # --- NOVA FUNÇÃO: Listar Portas ---
+    # --- FUNÇÕES BÁSICAS ---
     def listar_portas_disponiveis(self):
         portas = serial.tools.list_ports.comports()
-        lista_portas = []
-        for p in portas:
-            # p.device é "COM8", "COM10", etc.
-            lista_portas.append(p.device)
-        
-        if not lista_portas:
-            lista_portas = ["Nenhuma"]
-        
-        self.combo_portas.configure(values=lista_portas)
-        self.combo_portas.set(lista_portas[0]) # Seleciona a primeira
-        self.log(f"Portas encontradas: {', '.join(lista_portas)}\n")
+        lista = [p.device for p in portas] if portas else ["Nenhuma"]
+        self.combo_portas.configure(values=lista)
+        self.combo_portas.set(lista[0])
 
-    # --- LÓGICA GERAL ---
     def get_nome_arquivo(self):
-        nome_pasta = "dados coletados"
-        if not os.path.exists(nome_pasta):
-            os.makedirs(nome_pasta)
+        pasta = "dados coletados"
+        if not os.path.exists(pasta): os.makedirs(pasta)
         nome = self.entry_arquivo.get().strip() or "dados_sisaqui"
         return os.path.join(nome_pasta, nome + ".csv" if not nome.endswith(".csv") else nome)
 
@@ -163,10 +162,8 @@ class AppBalanca(ctk.CTk):
 
     def abrir_tabela(self):
         arquivo = self.get_nome_arquivo()
-        if os.path.exists(arquivo):
-            os.startfile(arquivo)
-        else:
-            messagebox.showwarning("Aviso", "Arquivo ainda não existe.")
+        if os.path.exists(arquivo): os.startfile(arquivo)
+        else: messagebox.showwarning("Aviso", "Arquivo ainda não existe.")
 
     def alternar_conexao(self):
         if self.ser and self.ser.is_open:
@@ -175,42 +172,30 @@ class AppBalanca(ctk.CTk):
             self.ser.close()
             self.ser = None
             self.btn_conexao.configure(text="Conectar", fg_color="green")
-            self.combo_portas.configure(state="normal") # Libera escolha de porta
-            self.btn_refresh.configure(state="normal")
-            self.lbl_status.configure(text="Desconectado", text_color="gray")
-            self.lbl_peso.configure(text="--- g")
+            self.combo_portas.configure(state="normal")
             self.entry_arquivo.configure(state="normal")
             self.btn_A.configure(state="disabled")
             self.btn_B.configure(state="disabled")
             self.btn_tarar.configure(state="disabled")
+            self.lbl_status.configure(text="Desconectado", text_color="gray")
             self.log("Desconectado.")
         else:
-            # PEGA A PORTA ESCOLHIDA NO MENU
-            porta_escolhida = self.combo_portas.get()
-            if porta_escolhida == "Nenhuma" or porta_escolhida == "Procurando...":
-                messagebox.showwarning("Aviso", "Nenhuma porta selecionada.")
-                return
-
+            porta = self.combo_portas.get()
+            if porta in ["Nenhuma", "..."]: return
             try:
-                # Usa a variável porta_escolhida em vez de 'COM8' fixo
-                self.ser = serial.Serial(porta_escolhida, 1200, bytesize=serial.SEVENBITS, parity=serial.PARITY_ODD, stopbits=1, timeout=0.5)
+                self.ser = serial.Serial(porta, 1200, bytesize=7, parity='O', stopbits=1, timeout=0.5)
                 self.monitorando = True
                 threading.Thread(target=self.thread_monitoramento, daemon=True).start()
-                
                 self.btn_conexao.configure(text="Desconectar", fg_color="red")
-                self.combo_portas.configure(state="disabled") # Trava mudança de porta
-                self.btn_refresh.configure(state="disabled")
-                
-                self.lbl_status.configure(text=f"Monitorando na {porta_escolhida}...", text_color="#00FF00")
+                self.combo_portas.configure(state="disabled")
                 self.entry_arquivo.configure(state="disabled")
                 self.btn_A.configure(state="normal")
                 self.btn_B.configure(state="normal")
                 self.btn_tarar.configure(state="normal")
-                self.verificar_csv()
-                self.focus()
-                self.log(f"Conectado na {porta_escolhida}!\n")
+                self.lbl_status.configure(text=f"Conectado em {porta}", text_color="#00FF00")
+                self.log(f"Conectado! Pode iniciar as leituras.")
             except Exception as e:
-                messagebox.showerror("Erro", f"Falha na conexão com {porta_escolhida}:\n{e}")
+                messagebox.showerror("Erro", f"{e}")
 
     def thread_monitoramento(self):
         while self.monitorando and self.ser and self.ser.is_open:
@@ -220,13 +205,10 @@ class AppBalanca(ctk.CTk):
                 linha = self.ser.readline().decode('ascii', errors='ignore')
                 match = re.search(r"[-+]?\s*\d+\.\d+", linha)
                 if match:
-                    peso_str = match.group().replace(" ", "")
-                    peso_float = float(peso_str)
-                    self.ultimo_peso_valido = peso_float 
-                    self.lbl_peso.configure(text=f"{peso_float} g")
+                    self.ultimo_peso_valido = float(match.group().replace(" ", ""))
+                    self.lbl_peso.configure(text=f"{self.ultimo_peso_valido} g")
                 time.sleep(0.2)
-            except Exception as e:
-                print(f"Erro no monitoramento: {e}")
+            except:
                 time.sleep(1)
 
     def comando_tarar(self):
@@ -241,8 +223,6 @@ class AppBalanca(ctk.CTk):
             return
 
         arquivo = self.get_nome_arquivo()
-        agora = datetime.now()
-        
         try:
             # Le todos os dados existentes
             dados_por_tipo = {'Padrao (A)': [], 'Cliente (B)': [], 'Generico': []}
@@ -360,19 +340,16 @@ class AppBalanca(ctk.CTk):
             messagebox.showerror("Erro", "Excel aberto! Feche para salvar.")
 
     def flash_button(self, btn):
-        cor_original = btn._fg_color
+        c = btn._fg_color
         btn.configure(fg_color="white", text_color="black")
-        self.after(100, lambda: btn.configure(fg_color=cor_original, text_color="white"))
-    
+        self.after(100, lambda: btn.configure(fg_color=c, text_color="white"))
+
     def log(self, msg):
-        self.textbox_log.insert("end", msg + "\n")
-        self.textbox_log.see("end")
+        self.textbox_log.insert("0.0", msg + "\n")
 
     def on_closing(self):
-        if self.ser and self.ser.is_open:
-            self.monitorando = False
-            time.sleep(0.5)
-            self.ser.close()
+        self.monitorando = False
+        if self.ser and self.ser.is_open: self.ser.close()
         self.destroy()
 
 if __name__ == "__main__":
