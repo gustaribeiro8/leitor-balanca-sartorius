@@ -8,6 +8,7 @@ import threading
 import os
 import sys
 from tkinter import messagebox
+from datetime import datetime
 
 # --- CONFIGURAÇÕES ---
 ctk.set_appearance_mode("Dark")
@@ -52,6 +53,7 @@ class AppBalanca(ctk.CTk):
         self.bind('<A>', lambda event: self.capturar_coluna("A"))
         self.bind('<b>', lambda event: self.capturar_coluna("B"))
         self.bind('<B>', lambda event: self.capturar_coluna("B"))
+        self.bind('<space>', lambda event: self.capturar_coluna("G"))
         
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -129,10 +131,10 @@ class AppBalanca(ctk.CTk):
         self.btn_A.configure(state="disabled")
         self.btn_B.configure(state="disabled")
 
-        # Log
-        self.textbox_log = ctk.CTkTextbox(self, height=80)
+        # Log (maior)
+        self.textbox_log = ctk.CTkTextbox(self, height=120)
         self.textbox_log.pack(pady=10, padx=10, fill="x")
-        self.textbox_log.insert("0.0", "Dica: Colunas independentes. Pode fazer varios A e depois varios B.\n")
+        self.textbox_log.insert("end", "Dica: Colunas independentes. Pode fazer varios A e depois varios B.\n")
 
     # --- FUNÇÕES BÁSICAS ---
     def listar_portas_disponiveis(self):
@@ -145,7 +147,7 @@ class AppBalanca(ctk.CTk):
         pasta = "dados coletados"
         if not os.path.exists(pasta): os.makedirs(pasta)
         nome = self.entry_arquivo.get().strip() or "dados_sisaqui"
-        return os.path.join(nome_pasta, nome + ".csv" if not nome.endswith(".csv") else nome)
+        return os.path.join(pasta, nome + ".csv" if not nome.endswith(".csv") else nome)
 
     def verificar_csv(self):
         arquivo = self.get_nome_arquivo()
@@ -153,9 +155,9 @@ class AppBalanca(ctk.CTk):
             try:
                 with open(arquivo, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter=';')
-                    # Cabecalho com espaco para futuros tipos
-                    writer.writerow(['Data', 'Hora', '', 'Padrao (A)', '', 'Cliente (B)', '', 'Generico', ''])
-                    writer.writerow(['', '', '', 'Peso (g)', 'Hora', 'Peso (g)', 'Hora', 'Peso (g)', 'Hora'])
+                    # Cabecalho com espaco para futuros tipos (formato com 11 colunas)
+                    writer.writerow(['Data', 'Hora', '', 'Padrao (A)', '', '', 'Cliente (B)', '', '', 'Generico', ''])
+                    writer.writerow(['', '', '', 'Peso (g)', 'Hora', '', 'Peso (g)', 'Hora', '', 'Peso (g)', 'Hora'])
                 self.log(f"Arquivo '{arquivo}' criado.")
             except PermissionError:
                 messagebox.showerror("Erro", "Feche o arquivo Excel!")
@@ -217,12 +219,35 @@ class AppBalanca(ctk.CTk):
             self.log("\nComando de TARA enviado.\n")
             time.sleep(0.5)
 
+    def capturar_coluna(self, coluna):
+        """Captura medida para a coluna A, B ou generica.
+        Converte a letra em tipo_amostra e delega para salvar_medida().
+        """
+        if coluna == 'A':
+            tipo = 'Padrao (A)'
+        elif coluna == 'B':
+            tipo = 'Cliente (B)'
+        else:
+            tipo = 'Generico'
+
+        self.log(f"Capturando coluna {coluna} -> {tipo}...")
+        # Realiza a gravação e atualiza os contadores na interface
+        self.salvar_medida(tipo)
+        # Atualiza contadores visuais com as variaveis internas (se existirem)
+        try:
+            if hasattr(self, 'cursor_A') and hasattr(self, 'cursor_B'):
+                self.lbl_count_A.configure(text=f"Amostras A: {self.cursor_A}")
+                self.lbl_count_B.configure(text=f"Amostras B: {self.cursor_B}")
+        except Exception:
+            pass
+
     def salvar_medida(self, tipo_amostra):
         if not self.monitorando or self.ultimo_peso_valido is None:
             self.log("⚠️ Aguarde leitura estavel...")
             return
 
         arquivo = self.get_nome_arquivo()
+        agora = datetime.now()
         try:
             # Le todos os dados existentes
             dados_por_tipo = {'Padrao (A)': [], 'Cliente (B)': [], 'Generico': []}
@@ -252,7 +277,13 @@ class AppBalanca(ctk.CTk):
                                 # Coleta pesos genericos (indice 9, 10)
                                 if len(linha) > 9 and linha[9]:
                                     dados_por_tipo['Generico'].append([linha[9], linha[10] if len(linha) > 10 else ''])
-            
+            # Atualiza contadores internos com o que foi lido
+            try:
+                self.cursor_A = len(dados_por_tipo.get('Padrao (A)', []))
+                self.cursor_B = len(dados_por_tipo.get('Cliente (B)', []))
+            except Exception:
+                self.cursor_A = getattr(self, 'cursor_A', 0)
+                self.cursor_B = getattr(self, 'cursor_B', 0)
             # Adiciona nova medida
             data_str = agora.strftime("%d/%m/%Y")
             hora_str = agora.strftime("%H:%M:%S")
@@ -262,6 +293,19 @@ class AppBalanca(ctk.CTk):
                 datas.append(data_str)
             
             dados_por_tipo[tipo_amostra].append([peso_str, hora_str])
+
+            # Atualiza contadores apos adicionar a nova medida
+            try:
+                self.cursor_A = len(dados_por_tipo.get('Padrao (A)', []))
+                self.cursor_B = len(dados_por_tipo.get('Cliente (B)', []))
+                # Atualiza labels
+                try:
+                    self.lbl_count_A.configure(text=f"Amostras A: {self.cursor_A}")
+                    self.lbl_count_B.configure(text=f"Amostras B: {self.cursor_B}")
+                except Exception:
+                    pass
+            except Exception:
+                pass
             
             # Reescreve o arquivo com os novos dados reorganizados
             with open(arquivo, 'w', newline='', encoding='utf-8') as f:
@@ -345,7 +389,12 @@ class AppBalanca(ctk.CTk):
         self.after(100, lambda: btn.configure(fg_color=c, text_color="white"))
 
     def log(self, msg):
-        self.textbox_log.insert("0.0", msg + "\n")
+        # Insere novas mensagens ao final (ordem cronologica: cima -> baixo)
+        try:
+            self.textbox_log.insert("end", msg + "\n")
+            self.textbox_log.see("end")
+        except Exception:
+            pass
 
     def on_closing(self):
         self.monitorando = False
