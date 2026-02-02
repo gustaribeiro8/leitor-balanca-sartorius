@@ -154,7 +154,9 @@ class AppBalanca(ctk.CTk):
             try:
                 with open(arquivo, 'w', newline='', encoding='utf-8') as f:
                     writer = csv.writer(f, delimiter=';')
-                    writer.writerow(['Data', 'Hora', 'Peso (g)', 'Tipo'])
+                    # Cabecalho com espaco para futuros tipos
+                    writer.writerow(['Data', 'Hora', '', 'Padrao (A)', '', 'Cliente (B)', '', 'Generico', ''])
+                    writer.writerow(['', '', '', 'Peso (g)', 'Hora', 'Peso (g)', 'Hora', 'Peso (g)', 'Hora'])
                 self.log(f"Arquivo '{arquivo}' criado.")
             except PermissionError:
                 messagebox.showerror("Erro", "Feche o arquivo Excel!")
@@ -235,18 +237,121 @@ class AppBalanca(ctk.CTk):
 
     def salvar_medida(self, tipo_amostra):
         if not self.monitorando or self.ultimo_peso_valido is None:
-            self.log("⚠️ Aguarde leitura estável...")
+            self.log("⚠️ Aguarde leitura estavel...")
             return
 
         arquivo = self.get_nome_arquivo()
         agora = datetime.now()
         
         try:
-            with open(arquivo, 'a', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f, delimiter=';')
-                writer.writerow([agora.strftime("%d/%m/%Y"), agora.strftime("%H:%M:%S"), str(self.ultimo_peso_valido).replace('.', ','), tipo_amostra])
+            # Le todos os dados existentes
+            dados_por_tipo = {'Padrao (A)': [], 'Cliente (B)': [], 'Generico': []}
+            datas = []
             
-            self.log(f"✅ Salvo: {self.ultimo_peso_valido}g como [{tipo_amostra}]")
+            if os.path.exists(arquivo):
+                with open(arquivo, 'r', newline='', encoding='utf-8') as f:
+                    reader = csv.reader(f, delimiter=';')
+                    linhas = list(reader)
+                    
+                    # Pula os 2 primeiros cabecalhos
+                    if len(linhas) > 2:
+                        for linha in linhas[2:]:
+                            if len(linha) >= 10:
+                                data = linha[0]
+                                if data and data not in datas and data != 'Data':
+                                    datas.append(data)
+                                
+                                # Coleta pesos tipo A (indice 3, 4)
+                                if linha[3]:
+                                    dados_por_tipo['Padrao (A)'].append([linha[3], linha[4]])
+                                
+                                # Coleta pesos tipo B (indice 6, 7)
+                                if linha[6]:
+                                    dados_por_tipo['Cliente (B)'].append([linha[6], linha[7]])
+                                
+                                # Coleta pesos genericos (indice 9, 10)
+                                if len(linha) > 9 and linha[9]:
+                                    dados_por_tipo['Generico'].append([linha[9], linha[10] if len(linha) > 10 else ''])
+            
+            # Adiciona nova medida
+            data_str = agora.strftime("%d/%m/%Y")
+            hora_str = agora.strftime("%H:%M:%S")
+            peso_str = str(self.ultimo_peso_valido).replace('.', ',')
+            
+            if data_str not in datas:
+                datas.append(data_str)
+            
+            dados_por_tipo[tipo_amostra].append([peso_str, hora_str])
+            
+            # Reescreve o arquivo com os novos dados reorganizados
+            with open(arquivo, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f, delimiter=';')
+                # Cabecalhos
+                writer.writerow(['Data', 'Hora', '', 'Padrao (A)', '', '', 'Cliente (B)', '', '', 'Generico', ''])
+                writer.writerow(['', '', '', 'Peso (g)', 'Hora', '', 'Peso (g)', 'Hora', '', 'Peso (g)', 'Hora'])
+                
+                # Dados organizados por linha/tipo
+                max_medidas = max(len(dados_por_tipo['Padrao (A)']), 
+                                 len(dados_por_tipo['Cliente (B)']), 
+                                 len(dados_por_tipo['Generico']))
+                
+                contador_linhas = 0
+                for i in range(max_medidas):
+                    # Quebra de linha a cada 4 medidas
+                    if contador_linhas > 0 and contador_linhas % 4 == 0:
+                        writer.writerow([])
+                    
+                    linha = []
+                    
+                    # Data e Hora (apenas na primeira linha)
+                    if i == 0:
+                        linha.extend([datas[-1] if datas else '', hora_str])
+                    else:
+                        linha.extend(['', ''])
+                    
+                    linha.append('')  # Coluna vazia de separacao
+                    
+                    # Tipo A
+                    if i < len(dados_por_tipo['Padrao (A)']):
+                        linha.extend(dados_por_tipo['Padrao (A)'][i])
+                    else:
+                        linha.extend(['', ''])
+                    
+                    linha.append('')  # Coluna vazia de separacao
+                    
+                    # Tipo B
+                    if i < len(dados_por_tipo['Cliente (B)']):
+                        linha.extend(dados_por_tipo['Cliente (B)'][i])
+                    else:
+                        linha.extend(['', ''])
+                    
+                    linha.append('')  # Coluna vazia de separacao
+                    
+                    # Tipo Generico
+                    if i < len(dados_por_tipo['Generico']):
+                        linha.extend(dados_por_tipo['Generico'][i])
+                    else:
+                        linha.extend(['', ''])
+                    
+                    writer.writerow(linha)
+                    contador_linhas += 1
+                
+                # Quebra de linha e estatisticas
+                writer.writerow([])
+                writer.writerow(['Estatisticas:'])
+                writer.writerow(['Tipo', 'Quantidade', 'Media (g)', 'Minimo (g)', 'Maximo (g)'])
+                
+                for tipo in ['Padrao (A)', 'Cliente (B)', 'Generico']:
+                    if dados_por_tipo[tipo]:
+                        pesos = [float(m[0].replace(',', '.')) for m in dados_por_tipo[tipo]]
+                        media = sum(pesos) / len(pesos)
+                        minimo = min(pesos)
+                        maximo = max(pesos)
+                        writer.writerow([tipo, len(pesos), f"{media:.2f}".replace('.', ','), 
+                                        f"{minimo:.2f}".replace('.', ','), 
+                                        f"{maximo:.2f}".replace('.', ',')])
+            
+            self.log(f"OK Salvo: {self.ultimo_peso_valido}g como [{tipo_amostra}]")
             if "A" in tipo_amostra:
                 self.flash_button(self.btn_A)
             elif "B" in tipo_amostra:
