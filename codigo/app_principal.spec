@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['app_balanca.py'],
+    ['app_principal.py'],
     pathex=[],
     binaries=[],
     datas=[('icone_sartorius.ico', '.')],
@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='app_balanca',
+    name='app_principal',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

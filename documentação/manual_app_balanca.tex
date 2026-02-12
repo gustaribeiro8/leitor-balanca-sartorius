@@ -41,7 +41,7 @@ Para usuários finais do laboratório, o SISAQUI é distribuído como um execut�
 \subsection{Instalação}
 \begin{enumerate}
 \item Acesse a pasta de rede "automatização de balanças".
-\item Abra o executável \texttt{app\_balanca.exe}.
+\item Abra o executável \texttt{app\_principal.exe}.
 \item Execute o arquivo diretamente. Não é necessária instalação adicional.
 \end{enumerate}
 
@@ -53,8 +53,8 @@ Para usuários finais do laboratório, o SISAQUI é distribuído como um execut�
 \begin{enumerate}
 \item Ligue a balança Sartorius e aguarde de 30 segundos a 1 minuto para que ela estabilize completamente.
 \item Conecte o cabo serial (USB) da balança ao computador.
-\item Abra o aplicativo SISAQUI executando o arquivo \texttt{app\_balanca.exe}.
-\item Selecione a porta COM correspondente à balança no menu suspenso.
+\item Abra o aplicativo SISAQUI executando o arquivo \texttt{app\_principal.exe}.
+\item Selecione a porta COM correspondente à balança no menu suspenso. Se a porta não aparecer, pressione o botão de atualizar ao lado da lista para recarregá-la.
 \item Clique em "Conectar" para estabelecer a comunicação serial.
 \end{enumerate}
 
@@ -77,7 +77,8 @@ A interface principal do SISAQUI é dividida em painéis intuitivos, facilitando
 \subsection{Leitura e Salvamento de Dados}
 \begin{itemize}
 \item Após conectar, a leitura em tempo real será exibida no painel central.
-\item Use os botões "PADRÃO (A)" ou "CLIENTE (B)" para salvar medições.
+\item Use os botões "Capturar para Coluna A" ou "Capturar para Coluna B" para salvar medições.
+\item Abaixo dos botões de captura, contadores exibem o número total de amostras salvas em cada coluna (\texttt{Nº de Amostras A} e \texttt{Nº de Amostras B}).
 \item Atalhos de teclado:
   \begin{itemize}
   \item \texttt{A} ou \texttt{a}: Salvar como Padrão (A)
@@ -97,8 +98,8 @@ Note que ao salvar uma medição o painel de log do aplicativo indica que esta f
 
 \subsection{Comandos Adicionais}
 \begin{itemize}
-\item Botão "ZERAR": Tara a balança (envia comando de tara).
-\item Botão "Excel": Abre o arquivo CSV no Microsoft Excel (se instalado).
+\item Botão "ZERAR BALANÇA": Tara a balança (envia comando de tara).
+\item Botão "Abrir no Excel": Abre o arquivo CSV no Microsoft Excel (se instalado).
 \end{itemize}
 
 \subsection{Encerramento}
@@ -162,7 +163,7 @@ Para desenvolvimento e modificações no código, é necessário configurar o am
 \item Clone o repositório:
    \begin{verbatim}
    git clone https://github.com/gustaribeiro8/leitor-balanca-sartorius.git
-   cd automatizacao_balanca
+   cd automatizacao_balancas
    \end{verbatim}
 
 \item Crie um ambiente virtual (recomendado):
@@ -176,73 +177,99 @@ Para desenvolvimento e modificações no código, é necessário configurar o am
    \item No Linux/Mac: \texttt{source .venv/bin/activate}
    \end{itemize}
 
-\item Instale as dependências:
+\item Instale as dependências a partir da pasta raiz:
    \begin{verbatim}
    pip install -r requirements.txt
    \end{verbatim}
 
-\item Execute o aplicativo em modo desenvolvimento:
+\item Execute o aplicativo em modo desenvolvimento (a partir da pasta raiz):
    \begin{verbatim}
-   python app_balanca.py
+   python codigo/app_principal.py
    \end{verbatim}
 \end{enumerate}
 
 \subsection{Geração do Executável}
-Para criar um executável standalone:
+Para criar um executável standalone, navegue até a pasta \texttt{codigo} e execute o comando abaixo:
 \begin{verbatim}
-python -m PyInstaller --noconsole --onefile --clean --icon=icone_sartorius.ico --add-data "icone_sartorius.ico;." app_balanca.py
+cd codigo
+python -m PyInstaller --noconsole --onefile --clean --icon=icone_sartorius.ico --add-data "icone_sartorius.ico;." app_principal.py
 \end{verbatim}
 
-O executável será gerado na pasta \texttt{dist/}.
+O executável será gerado na subpasta \texttt{dist/}.
 
-\section{Estrutura do Código}
+\section{Estrutura do Código (Arquitetura Modular)}
+O código-fonte foi refatorado para uma arquitetura modular que separa as responsabilidades, facilitando a manutenção e o desenvolvimento de novas funcionalidades. O padrão utilizado é similar ao \textbf{Model-View-Controller (MVC)}, onde temos:
 
-\subsection{Principais Arquivos}
 \begin{itemize}
-\item \texttt{app\_balanca.py}: Arquivo principal da aplicação.
-\item \texttt{leitura\_balanca.py}: Módulo para comunicação serial (se separado).
-\item \texttt{icone\_sartorius.ico}: Ícone da aplicação.
-\item \texttt{.gitignore}: Arquivo para ignorar arquivos no Git.
+    \item \textbf{View (Interface):} \texttt{app\_ui.py}
+    \item \textbf{Controller (Orquestrador):} \texttt{app\_principal.py}
+    \item \textbf{Services (Lógica de Negócio):} \texttt{servico\_balanca.py} e \texttt{servico\_csv.py}
 \end{itemize}
 
-\subsection{Classe Principal: AppBalanca}
-A classe \texttt{AppBalanca} herda de \texttt{ctk.CTk} e gerencia a interface gráfica.
+\subsection{Módulos Principais}
+\begin{description}
+    \item[\texttt{app\_principal.py (Controller)}] É o cérebro da aplicação. Ele não contém código de interface nem lógica de baixo nível. Sua responsabilidade é orquestrar os outros módulos:
+    \begin{itemize}
+        \item Inicializa a UI e os serviços.
+        \item Recebe eventos da UI (ex: "usuário clicou em conectar").
+        \item Aciona a lógica nos serviços (ex: chama \texttt{servico\_balanca.conectar()}).
+        \item Recebe dados dos serviços (ex: um novo peso) e atualiza a UI.
+    \end{itemize}
 
-\subsubsection{Métodos Principais}
-\begin{itemize}
-\item \texttt{\_\_init\_\_()}: Inicializa a interface e configurações.
-\item \texttt{criar\_interface()}: Cria os elementos da GUI.
-\item \texttt{alternar\_conexao()}: Conecta/desconecta da balança.
-\item \texttt{salvar\_medida()}: Salva medições no CSV.
-\item \texttt{thread\_monitoramento()}: Thread para leitura contínua.
-\end{itemize}
+    \item[\texttt{app\_ui.py (View)}] Responsável exclusivamente pela interface gráfica.
+    \begin{itemize}
+        \item Cria e posiciona todos os widgets (janela, botões, labels).
+        \item Não possui lógica de negócio. Ações do usuário são delegadas ao Controller.
+        \item Possui métodos públicos para ser atualizada pelo Controller (ex: \texttt{atualizar\_peso\_display()}).
+    \end{itemize}
+
+    \item[\texttt{servico\_balanca.py (Service)}] Gerencia toda a comunicação com a balança.
+    \begin{itemize}
+        \item Contém a lógica de conexão, desconexão e monitoramento via \texttt{pyserial}.
+        \item Executa a leitura da balança em uma thread separada para não travar a interface.
+        \item Comunica-se com o Controller através de \textit{callbacks} (funções que são chamadas para notificar sobre eventos como um novo peso ou perda de conexão).
+    \end{itemize}
+
+    \item[\texttt{servico\_csv.py (Service)}] Isola toda a lógica de manipulação de arquivos.
+    \begin{itemize}
+        \item Responsável por ler, modificar e salvar os dados no formato \texttt{.csv}.
+        \item Inclui a lógica para cálculo de estatísticas.
+    \end{itemize}
+\end{description}
 
 \subsection{Comunicação Serial}
+A configuração e os comandos da comunicação serial estão agora encapsulados dentro de \texttt{servico\_balanca.py}.
 \begin{itemize}
-\item Usa a biblioteca \texttt{pyserial} para comunicação.
-\item Configuração: 1200 baud, 7 bits, paridade ímpar, 1 stop bit.
+\item Biblioteca: \texttt{pyserial}.
+\item Configuração: 1200 baud, 7 data bits, paridade ímpar, 1 stop bit.
 \item Comando de leitura: \texttt{\textbackslash x1bP\textbackslash r\textbackslash n}
 \item Comando de tara: \texttt{\textbackslash x1bf4\_\textbackslash r\textbackslash n}
 \end{itemize}
 
 \section{Desenvolvimento e Modificações}
+Graças à nova arquitetura, as modificações se tornam mais seguras e localizadas.
 
-\subsection{Adicionando Novas Funcionalidades}
-\begin{enumerate}
-\item Analise os requisitos da nova funcionalidade e planeje as modificações necessárias.
-\item Modifique a classe \texttt{AppBalanca} ou crie novos métodos conforme necessário.
-\item Teste as alterações executando o script em modo desenvolvimento.
-\item Verifique se a nova funcionalidade não quebra funcionalidades existentes.
-\item Atualize a documentação, incluindo este manual, se aplicável.
-\item Commite as mudanças no repositório Git com uma mensagem descritiva.
-\end{enumerate}
+\subsection{Onde fazer alterações?}
+\begin{itemize}
+    \item \textbf{Para alterar a interface (cores, textos, layout):}
+    Modifique o arquivo \texttt{app\_ui.py}. Você pode alterar os widgets no método \texttt{\_criar\_widgets()} sem medo de quebrar a lógica da aplicação.
+
+    \item \textbf{Para alterar a lógica de captura ou adicionar um novo tipo de amostra:}
+    Modifique o arquivo \texttt{app\_principal.py}. A lógica de alto nível para o que acontece ao clicar em "Capturar" está no método \texttt{capturar\_coluna()}.
+
+    \item \textbf{Para alterar o formato do CSV ou adicionar novas estatísticas:}
+    Toda a lógica de escrita de arquivo está em \texttt{servico\_csv.py}, no método \texttt{salvar\_medida()}.
+
+    \item \textbf{Para ajustar comandos da balança ou o tempo de leitura:}
+    A lógica de comunicação com o hardware está em \texttt{servico\_balanca.py}. O loop de leitura fica em \texttt{\_thread\_monitoramento()}.
+\end{itemize}
 
 \subsection{Debugging}
 \begin{itemize}
-\item Use o painel de log para depurar.
-\item Adicione prints temporários para variáveis críticas.
-\item Verifique a porta serial com ferramentas como PuTTY.
+\item O painel de log continua sendo a principal ferramenta. Como a arquitetura agora usa callbacks, o \texttt{app\_principal.py} centraliza o logging, garantindo que as mensagens da UI e dos serviços apareçam de forma organizada.
+\item Use \textit{breakpoints} no seu editor de código para inspecionar o fluxo entre o Controller e os Serviços.
 \end{itemize}
+
 
 \subsection{Versionamento}
 \begin{itemize}
