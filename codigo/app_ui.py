@@ -37,10 +37,7 @@ class AppUI(ctk.CTk):
 
     def _resource_path(self, relative_path):
         """Obtém o caminho absoluto para o recurso, lidando com o PyInstaller."""
-        try:
-            base_path = sys._MEIPASS
-        except Exception:
-            base_path = os.path.abspath(".")
+        base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
         return os.path.join(base_path, relative_path)
 
     def _criar_widgets(self):
