@@ -5,16 +5,70 @@
 \usepackage{geometry}
 \geometry{margin=2.5cm}
 \usepackage{graphicx}
+\usepackage{xcolor} % For custom colors
 \usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!50!black,
+    filecolor=magenta,
+    urlcolor=cyan!50!black,
+}
 \usepackage{enumitem}
+\usepackage{titlesec} % For custom section titles
+\usepackage{listings} % For code listings with line breaking
 
-\title{Manual do Usuário - SISAQUI \\ Sistema de Aquisição Universal para Balanças \\ Laboratório de Medições Mecânicas (LMM) - IPT}
-\author{Gustavo dos Santos Ribeiro \\ Victor Nascimento Pereira}
-\date{Janeiro de 2026}
+% --- Customizing Section Appearance ---
+\titleformat{\section}
+  {\normalfont\sffamily\Large\bfseries\color{blue!60!black}}
+  {\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\sffamily\large\bfseries\color{blue!60!black}}
+  {\thesubsection}{1em}{}
+
+% --- Title Information ---
+\newcommand{\projecttitle}{SISAQUI}
+\newcommand{\projectsubtitle}{Sistema de Aquisição Universal para Balanças}
+\newcommand{\labname}{Laboratório de Medições Mecânicas (LMM)}
+\newcommand{\institutename}{Instituto de Pesquisas Tecnológicas (IPT)}
 
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    
+    % --- ICON ---
+    % O arquivo 'icone_sartorius.png' foi adicionado.
+    \includegraphics[width=0.3\textwidth]{figuras/icone_sartorius.png}
+    
+    \vspace{1.5cm}
+    
+    {\Huge\bfseries Manual do Usuário \\ \vspace{0.5cm} \projecttitle\par}
+    \vspace{1cm}
+    {\Large\sffamily \projectsubtitle\par}
+    
+    \vspace{2cm}
+    
+    {\Large\sffamily \labname \\ \institutename\par}
+    
+    \vfill
+    
+    {\large
+    \begin{tabular}{c}
+    \textbf{Autores:} \\
+    \hline
+    \rule{0pt}{1.2em} % Add some space after the line
+    Gustavo dos Santos Ribeiro \\
+    Victor Nascimento Pereira
+    \end{tabular}
+    \par
+    }
+    
+    \vspace{1cm}
+    
+    {\large Janeiro de 2026\par}
+    
+\end{titlepage}
 
 \tableofcontents
 \newpage
@@ -40,8 +94,8 @@ Para usuários finais do laboratório, o SISAQUI é distribuído como um execut�
 
 \subsection{Instalação}
 \begin{enumerate}
-\item Acesse a pasta de rede "automatização de balanças".
-\item Abra o executável \texttt{app\_principal.exe}.
+\item Acesse a pasta de rede do SISAQUI, disponível em: \href{run:I:/LMM/Documentos_e_Registros_da_Qualidade_LMM/Sistema_de_Gestao/Softwares/SISAQUI}{SISAQUI na rede}.
+\item Abra o executável \texttt{SISAQUI.exe}.
 \item Execute o arquivo diretamente. Não é necessária instalação adicional.
 \end{enumerate}
 
@@ -53,7 +107,7 @@ Para usuários finais do laboratório, o SISAQUI é distribuído como um execut�
 \begin{enumerate}
 \item Ligue a balança Sartorius e aguarde de 30 segundos a 1 minuto para que ela estabilize completamente.
 \item Conecte o cabo serial (USB) da balança ao computador.
-\item Abra o aplicativo SISAQUI executando o arquivo \texttt{app\_principal.exe}.
+\item Abra o aplicativo SISAQUI executando o arquivo \texttt{SISAQUI.exe}.
 \item Selecione a porta COM correspondente à balança no menu suspenso. Se a porta não aparecer, pressione o botão de atualizar ao lado da lista para recarregá-la.
 \item Clique em "Conectar" para estabelecer a comunicação serial.
 \end{enumerate}
@@ -70,14 +124,14 @@ A interface principal do SISAQUI é dividida em painéis intuitivos, facilitando
 
 \subsection{Configuração do Arquivo de Dados}
 \begin{itemize}
-\item No campo "Ensaio:", insira o nome do arquivo onde você quer que os dados sejam salvos (ex.: \texttt{ensaio\_metrologia}).
+\item No campo ``Ensaio:'', insira o nome do arquivo onde você quer que os dados sejam salvos (ex.: \texttt{ensaio\_metrologia}).
 \item Os dados serão salvos automaticamente na subpasta \texttt{dados coletados/} no arquivo com o nome escolhido (ex.: \texttt{ensaio\_metrologia}).
 \end{itemize}
 
 \subsection{Leitura e Salvamento de Dados}
 \begin{itemize}
 \item Após conectar, a leitura em tempo real será exibida no painel central.
-\item Use os botões "Capturar para Coluna A" ou "Capturar para Coluna B" para salvar medições.
+\item Use os botões ``Capturar para Coluna A'' ou ``Capturar para Coluna B'' para salvar medições.
 \item Abaixo dos botões de captura, contadores exibem o número total de amostras salvas em cada coluna (\texttt{Nº de Amostras A} e \texttt{Nº de Amostras B}).
 \item Atalhos de teclado:
   \begin{itemize}
@@ -98,16 +152,16 @@ Note que ao salvar uma medição o painel de log do aplicativo indica que esta f
 
 \subsection{Comandos Adicionais}
 \begin{itemize}
-\item Botão "ZERAR BALANÇA": Tara a balança (envia comando de tara).
-\item Botão "Abrir no Excel": Abre o arquivo CSV no Microsoft Excel (se instalado).
+\item Botão ``ZERAR BALANÇA'': Tara a balança (envia comando de tara).
+\item Botão ``Abrir no Excel'': Abre o arquivo CSV no Microsoft Excel (se instalado).
 \end{itemize}
 
 \subsection{Encerramento}
 \begin{itemize}
-\item Clique em "Desconectar" antes de fechar o aplicativo para liberar a porta serial.
+\item Clique em ``Desconectar'' antes de fechar o aplicativo para liberar a porta serial.
 \item O aplicativo fecha automaticamente a conexão serial ao ser fechado.
 \end{itemize}
-Jamais puxe o cabo serial enquanto o aplicativo estiver conectado, para evitar erros de comunicação, sempre clique em "Desconectar" antes de mexer no cabo.
+\textbf{Jamais puxe o cabo serial enquanto o aplicativo estiver conectado, para evitar erros de comunicação. Sempre clique em ``Desconectar'' antes de mexer no cabo.}
 
 \section{Troubleshooting para Usuários Finais}
 
@@ -155,7 +209,7 @@ Para desenvolvimento e modificações no código, é necessário configurar o am
 \begin{itemize}
 \item Python 3.8 ou superior
 \item Git para controle de versão
-\item Editor de código (recomendado: Visual Studio Code)
+\item Editor de código (IDE)
 \end{itemize}
 
 \subsection{Instalação do Ambiente}
@@ -166,10 +220,7 @@ Para desenvolvimento e modificações no código, é necessário configurar o am
    cd automatizacao_balancas
    \end{verbatim}
 
-\item Crie um ambiente virtual (recomendado):
-   \begin{verbatim}
-   python -m venv .venv
-   \end{verbatim}
+\item Crie um ambiente virtual (recomendado);
 
 \item Ative o ambiente virtual:
    \begin{itemize}
@@ -190,10 +241,12 @@ Para desenvolvimento e modificações no código, é necessário configurar o am
 
 \subsection{Geração do Executável}
 Para criar um executável standalone, navegue até a pasta \texttt{codigo} e execute o comando abaixo:
+
 \begin{verbatim}
 cd codigo
-python -m PyInstaller --noconsole --onefile --clean --icon=icone_sartorius.ico --add-data "icone_sartorius.ico;." app_principal.py
+python -m PyInstaller app_principal.spec
 \end{verbatim}
+
 
 O executável será gerado na subpasta \texttt{dist/}.
 
@@ -211,7 +264,7 @@ O código-fonte foi refatorado para uma arquitetura modular que separa as respon
     \item[\texttt{app\_principal.py (Controller)}] É o cérebro da aplicação. Ele não contém código de interface nem lógica de baixo nível. Sua responsabilidade é orquestrar os outros módulos:
     \begin{itemize}
         \item Inicializa a UI e os serviços.
-        \item Recebe eventos da UI (ex: "usuário clicou em conectar").
+        \item Recebe eventos da UI (ex: ``usuário clicou em conectar'').
         \item Aciona a lógica nos serviços (ex: chama \texttt{servico\_balanca.conectar()}).
         \item Recebe dados dos serviços (ex: um novo peso) e atualiza a UI.
     \end{itemize}
@@ -220,7 +273,9 @@ O código-fonte foi refatorado para uma arquitetura modular que separa as respon
     \begin{itemize}
         \item Cria e posiciona todos os widgets (janela, botões, labels).
         \item Não possui lógica de negócio. Ações do usuário são delegadas ao Controller.
-        \item Possui métodos públicos para ser atualizada pelo Controller (ex: \texttt{atualizar\_peso\_display()}).
+        \item Possui métodos públicos para ser atualizada pelo Controller 
+        
+        (ex: \texttt{atualizar\_peso\_display()}).
     \end{itemize}
 
     \item[\texttt{servico\_balanca.py (Service)}] Gerencia toda a comunicação com a balança.
@@ -255,7 +310,7 @@ Graças à nova arquitetura, as modificações se tornam mais seguras e localiza
     Modifique o arquivo \texttt{app\_ui.py}. Você pode alterar os widgets no método \texttt{\_criar\_widgets()} sem medo de quebrar a lógica da aplicação.
 
     \item \textbf{Para alterar a lógica de captura ou adicionar um novo tipo de amostra:}
-    Modifique o arquivo \texttt{app\_principal.py}. A lógica de alto nível para o que acontece ao clicar em "Capturar" está no método \texttt{capturar\_coluna()}.
+    Modifique o arquivo \texttt{app\_principal.py}. A lógica de alto nível para o que acontece ao clicar em ``Capturar'' está no método \texttt{capturar\_coluna()}.
 
     \item \textbf{Para alterar o formato do CSV ou adicionar novas estatísticas:}
     Toda a lógica de escrita de arquivo está em \texttt{servico\_csv.py}, no método \texttt{salvar\_medida()}.

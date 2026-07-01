@@ -14,7 +14,7 @@ class AppUI(ctk.CTk):
         self.controller = controller
 
         # --- CONFIGURAÇÕES DA JANELA ---
-        self.title("SISAQUI - Modo Planilha Livre v8.3 (Refatorado)") 
+        self.title("SISAQUI - Modo Planilha Livre v8.3") 
         self.geometry("750x700")
         self.resizable(False, False)
 
