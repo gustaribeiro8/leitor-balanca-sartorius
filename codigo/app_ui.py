@@ -135,6 +135,21 @@ class AppUI(ctk.CTk):
             self.btn_tarar.configure(state="disabled")
             self.atualizar_peso_display(None, False)
 
+    def set_estado_capturando(self, capturando):
+        """Habilita/desabilita os botões de captura durante uma leitura."""
+        if not self.winfo_exists():
+            return
+
+        if capturando:
+            self.btn_A.configure(state="disabled", text="Capturando...")
+            self.btn_B.configure(state="disabled", text="Capturando...")
+            # Desabilita atalhos temporariamente para evitar acionamentos múltiplos
+            self.unbind_all('<space>')
+        else:
+            self.btn_A.configure(state="normal", text="Capturar para Coluna A")
+            self.btn_B.configure(state="normal", text="Capturar para Coluna B")
+            self.bind('<space>', lambda event: self.controller.capturar_coluna("G"))
+
     def atualizar_lista_portas(self, portas):
         """Atualiza a lista de portas no ComboBox."""
         self.combo_portas.configure(values=portas)

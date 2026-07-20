@@ -1,5 +1,6 @@
 import sys
 from app_ui import AppUI
+import threading
 from servico_balanca import ServicoBalanca
 from servico_csv import ServicoCsv
 
@@ -9,6 +10,7 @@ class AppPrincipal:
         self.conectado = False
         self.leitura_estavel = False
         self.contadores_totais = {'A': 0, 'B': 0}
+        self._capturando = False # Novo estado para evitar capturas simultâneas
         self._encerrando = False
 
         # Estado para controle de lotes mistos (ex: ABBA)
@@ -64,24 +66,55 @@ class AppPrincipal:
             self.servico_balanca.enviar_comando_tara()
 
     def capturar_coluna(self, coluna_letra):
+        """Inicia o processo de captura de uma nova medida."""
         if not self.conectado:
             self.log("Conecte à balança para capturar.")
             return
-
-        # Solicita uma leitura instantânea no momento da captura
-        peso_capturado, estavel = self.servico_balanca.get_leitura_instantanea()
-
-        # Se a leitura falhar, pausa o monitoramento antes de mostrar o alerta
-        if not estavel or peso_capturado is None:
-            self.servico_balanca.pausar_monitoramento()
-            try:
-                self.ui.show_warning("Aviso", "A leitura da balança não está estável. Aguarde a estabilização para capturar o peso.")
-                self.log("⚠️ Captura cancelada: leitura instável.")
-            finally:
-                # Garante que o monitoramento seja sempre retomado
-                self.servico_balanca.retomar_monitoramento()
+        
+        if self._capturando:
+            self.log("Aguarde, captura anterior em andamento...")
             return
 
+        # Inicia o processo de captura em uma nova thread para não travar a UI
+        threading.Thread(target=self._thread_captura, args=(coluna_letra,), daemon=True).start()
+
+    def _thread_captura(self, coluna_letra):
+        """
+        Executa em uma thread separada para obter a leitura da balança
+        sem congelar a interface do usuário.
+        """
+        self._capturando = True
+        self._safe_schedule_ui(self.ui.set_estado_capturando, True)
+
+        try:
+            # Solicita uma leitura instantânea no momento da captura
+            peso_capturado, estavel = self.servico_balanca.get_leitura_instantanea()
+
+            if not estavel or peso_capturado is None:
+                # Pausa o monitoramento antes de mostrar o alerta modal
+                self.servico_balanca.pausar_monitoramento()
+                try:
+                    self.log("⚠️ Captura cancelada: leitura instável.")
+                    # A chamada para a UI (show_warning) deve ser agendada na thread principal
+                    self._safe_schedule_ui(
+                        self.ui.show_warning, 
+                        "Aviso", 
+                        "A leitura da balança não está estável. Aguarde a estabilização para capturar o peso."
+                    )
+                finally:
+                    self.servico_balanca.retomar_monitoramento()
+                return # Finaliza a thread de captura
+
+            # A lógica de negócio pode continuar aqui, mas as atualizações da UI
+            # devem ser agendadas para a thread principal.
+            self._safe_schedule_ui(self._processar_captura_bem_sucedida, coluna_letra, peso_capturado)
+
+        finally:
+            self._capturando = False
+            self._safe_schedule_ui(self.ui.set_estado_capturando, False)
+
+    def _processar_captura_bem_sucedida(self, coluna_letra, peso_capturado):
+        """Processa a captura após uma leitura bem-sucedida (executa na thread da UI)."""
         if coluna_letra == 'A':
             self.lote_em_andamento_A.append(peso_capturado)
             self.log(f"Adicionado à Coluna A: {peso_capturado:.6f}g (Total A: {len(self.lote_em_andamento_A)})")
@@ -91,7 +124,7 @@ class AppPrincipal:
         else: # Coluna Genérica (G) - salva imediatamente
             self._salvar_medida_unica(peso_capturado)
             return
-
+        
         # Atualiza a UI para mostrar o progresso do lote
         self.ui.atualizar_contadores_lote(len(self.lote_em_andamento_A), len(self.lote_em_andamento_B))
         self.ui.flash_button(coluna_letra)
@@ -108,7 +141,7 @@ class AppPrincipal:
                         (count_A == 4 and count_B == 4)
 
         if lote_completo:
-            self._confirmar_e_salvar_lote()
+            self._confirmar_e_salvar_lote() # Esta função já pausa/retoma o monitoramento
 
     def _confirmar_e_salvar_lote(self):
         """Mostra um popup de confirmação e salva o lote se o usuário concordar."""
