@@ -21,8 +21,8 @@ class AppUI(ctk.CTk):
         caminho_icone = self._resource_path("icone_sartorius.ico")
         try:
             self.iconbitmap(caminho_icone)
-        except:
-            self.log("Ícone não encontrado, usando padrão.")
+        except Exception:
+            pass
 
         self._criar_widgets()
         
@@ -99,7 +99,7 @@ class AppUI(ctk.CTk):
         self.lbl_count_A = ctk.CTkLabel(frame_acoes, text="Nº de Amostras A: 0", font=("Arial", 16, "bold"))
         self.lbl_count_A.grid(row=1, column=0, pady=5)
 
-        self.btn_B = ctk.CTkButton(frame_acoes, text="Capturar para Coluna B", height=50, command=lambda: self.controller.capturar_coluna("B"), fg_color="#e67e22")
+        self.btn_B = ctk.CTkButton(frame_acoes, text="Capturar para Coluna B", height=50, command=lambda: self.controller.capturar_coluna("B"), fg_color="#e67e22", hover_color="#d35400")
         self.btn_B.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
         self.lbl_count_B = ctk.CTkLabel(frame_acoes, text="Nº de Amostras B: 0", font=("Arial", 16, "bold"))
@@ -116,6 +116,9 @@ class AppUI(ctk.CTk):
     # --- MÉTODOS PÚBLICOS (chamados pelo Controller) ---
     def set_estado_conectado(self, conectado):
         """Habilita/desabilita os widgets com base no estado da conexão."""
+        if not self.winfo_exists():
+            return
+
         if conectado:
             self.btn_conexao.configure(text="Desconectar", fg_color="red")
             self.combo_portas.configure(state="disabled")
@@ -130,19 +133,18 @@ class AppUI(ctk.CTk):
             self.btn_A.configure(state="disabled")
             self.btn_B.configure(state="disabled")
             self.btn_tarar.configure(state="disabled")
-            self.atualizar_peso_display(None)
+            self.atualizar_peso_display(None, False)
 
     def atualizar_lista_portas(self, portas):
         """Atualiza a lista de portas no ComboBox."""
         self.combo_portas.configure(values=portas)
         self.combo_portas.set(portas[0] if portas else "Nenhuma")
 
-    def atualizar_peso_display(self, peso_float):
+    def atualizar_peso_display(self, peso_float, estavel):
         """Atualiza o label que exibe o peso."""
-        if peso_float is not None:
-            self.lbl_peso.configure(text=f"{peso_float:.4f} g")
-        else:
-            self.lbl_peso.configure(text="--- g")
+        cor_texto = "white" if estavel else "orange"
+        texto_peso = f"{peso_float:.6f} g" if peso_float is not None else "--- g"
+        self.lbl_peso.configure(text=texto_peso, text_color=cor_texto)
 
     def atualizar_status(self, texto, cor):
         """Atualiza o label de status da conexão."""
@@ -153,18 +155,34 @@ class AppUI(ctk.CTk):
         self.lbl_count_A.configure(text=f"Nº de Amostras A: {count_A}")
         self.lbl_count_B.configure(text=f"Nº de Amostras B: {count_B}")
 
+    def atualizar_contadores_lote(self, progresso_A, progresso_B):
+        """Atualiza o contador para mostrar o progresso do lote (ex: 2/4)."""
+        self.lbl_count_A.configure(text=f"Nº de Amostras A: {progresso_A}")
+        self.lbl_count_B.configure(text=f"Nº de Amostras B: {progresso_B}")
+
     def log(self, msg):
         """Adiciona uma mensagem ao textbox de log."""
-        if self.textbox_log:
+        if self.winfo_exists() and getattr(self, "textbox_log", None) and self.textbox_log.winfo_exists():
             self.textbox_log.insert("end", msg + "\n")
             self.textbox_log.see("end")
 
     def flash_button(self, coluna):
         """Animação de 'flash' para um botão de captura."""
-        btn = self.btn_A if coluna == "A" else self.btn_B
-        original_color = btn.cget("fg_color")
-        btn.configure(fg_color="white", text_color="black")
-        self.after(100, lambda: btn.configure(fg_color=original_color, text_color="white"))
+        if not self.winfo_exists():
+            return
+
+        if coluna == "A":
+            btn = self.btn_A
+            original_color = "#2980b9"
+            flash_color = "#5dade2" # Azul mais claro
+        else: # Coluna B
+            btn = self.btn_B
+            original_color = "#e67e22"
+            flash_color = "#f5b041" # Laranja mais claro
+
+        if btn and btn.winfo_exists():
+            btn.configure(fg_color=flash_color)
+            self.after(150, lambda: btn.configure(fg_color=original_color) if btn.winfo_exists() else None)
 
     def get_nome_ensaio(self):
         """Retorna o nome do ensaio inserido pelo usuário."""
@@ -186,5 +204,10 @@ class AppUI(ctk.CTk):
     def show_error(titulo, mensagem):
         messagebox.showerror(titulo, mensagem)
         
+    @staticmethod
+    def show_confirmation(titulo, mensagem):
+        """Mostra uma caixa de diálogo de confirmação (Sim/Não) e retorna True/False."""
+        return messagebox.askyesno(titulo, mensagem, icon='question')
+
     def mainloop(self):
         super().mainloop()

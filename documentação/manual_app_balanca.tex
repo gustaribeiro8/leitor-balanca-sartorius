@@ -24,10 +24,9 @@
 \titleformat{\subsection}
   {\normalfont\sffamily\large\bfseries\color{blue!60!black}}
   {\thesubsection}{1em}{}
-
 % --- Title Information ---
-\newcommand{\projecttitle}{SISAQUI}
-\newcommand{\projectsubtitle}{Sistema de Aquisição Universal para Balanças}
+\newcommand{\projecttitle}{SISAQUI - Modo Planilha Livre}
+\newcommand{\projectsubtitle}{Sistema de Aquisição Universal para Balanças v8.3}
 \newcommand{\labname}{Laboratório de Medições Mecânicas (LMM)}
 \newcommand{\institutename}{Instituto de Pesquisas Tecnológicas (IPT)}
 
@@ -244,7 +243,7 @@ Para criar um executável standalone, navegue até a pasta \texttt{codigo} e exe
 
 \begin{verbatim}
 cd codigo
-python -m PyInstaller app_principal.spec
+python -m PyInstaller --noconsole --onefile --clean --icon=icone_sartorius.ico --add-data "icone_sartorius.ico;." app_principal.py
 \end{verbatim}
 
 
@@ -266,6 +265,7 @@ O código-fonte foi refatorado para uma arquitetura modular que separa as respon
         \item Inicializa a UI e os serviços.
         \item Recebe eventos da UI (ex: ``usuário clicou em conectar'').
         \item Aciona a lógica nos serviços (ex: chama \texttt{servico\_balanca.conectar()}).
+        \item Gerencia a pausa e retomada do monitoramento da balança para garantir a responsividade da interface durante diálogos modais.
         \item Recebe dados dos serviços (ex: um novo peso) e atualiza a UI.
     \end{itemize}
 
@@ -275,7 +275,7 @@ O código-fonte foi refatorado para uma arquitetura modular que separa as respon
         \item Não possui lógica de negócio. Ações do usuário são delegadas ao Controller.
         \item Possui métodos públicos para ser atualizada pelo Controller 
         
-        (ex: \texttt{atualizar\_peso\_display()}).
+        (ex: \texttt{atualizar\_peso\_display()}). Permite customização de cores de \textit{hover} para botões.
     \end{itemize}
 
     \item[\texttt{servico\_balanca.py (Service)}] Gerencia toda a comunicação com a balança.
@@ -283,6 +283,8 @@ O código-fonte foi refatorado para uma arquitetura modular que separa as respon
         \item Contém a lógica de conexão, desconexão e monitoramento via \texttt{pyserial}.
         \item Executa a leitura da balança em uma thread separada para não travar a interface.
         \item Comunica-se com o Controller através de \textit{callbacks} (funções que são chamadas para notificar sobre eventos como um novo peso ou perda de conexão).
+        \item Inclui métodos para \texttt{pausar\_monitoramento()} e \texttt{retomar\_monitoramento()}, permitindo que a aplicação controle o fluxo de dados da balança.
+        \item Garante que a interface seja sempre notificada sobre o estado de estabilidade da balança, mesmo quando não há uma nova leitura de peso válida.
     \end{itemize}
 
     \item[\texttt{servico\_csv.py (Service)}] Isola toda a lógica de manipulação de arquivos.
@@ -307,16 +309,16 @@ Graças à nova arquitetura, as modificações se tornam mais seguras e localiza
 \subsection{Onde fazer alterações?}
 \begin{itemize}
     \item \textbf{Para alterar a interface (cores, textos, layout):}
-    Modifique o arquivo \texttt{app\_ui.py}. Você pode alterar os widgets no método \texttt{\_criar\_widgets()} sem medo de quebrar a lógica da aplicação.
+    Modifique o arquivo \texttt{app\_ui.py}. Você pode alterar os widgets no método \texttt{\_criar\_widgets()} e customizar cores de \textit{hover} para botões sem medo de quebrar a lógica da aplicação.
 
     \item \textbf{Para alterar a lógica de captura ou adicionar um novo tipo de amostra:}
-    Modifique o arquivo \texttt{app\_principal.py}. A lógica de alto nível para o que acontece ao clicar em ``Capturar'' está no método \texttt{capturar\_coluna()}.
+    Modifique o arquivo \texttt{app\_principal.py}. A lógica de alto nível para o que acontece ao clicar em ``Capturar'' está no método \texttt{capturar\_coluna()}, incluindo a orquestração da pausa/retomada do monitoramento.
 
     \item \textbf{Para alterar o formato do CSV ou adicionar novas estatísticas:}
     Toda a lógica de escrita de arquivo está em \texttt{servico\_csv.py}, no método \texttt{salvar\_medida()}.
 
     \item \textbf{Para ajustar comandos da balança ou o tempo de leitura:}
-    A lógica de comunicação com o hardware está em \texttt{servico\_balanca.py}. O loop de leitura fica em \texttt{\_thread\_monitoramento()}.
+    A lógica de comunicação com o hardware está em \texttt{servico\_balanca.py}. O loop de leitura fica em \texttt{\_thread\_monitoramento()}, que agora notifica a interface sobre a instabilidade de forma mais consistente.
 \end{itemize}
 
 \subsection{Debugging}
